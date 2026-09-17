@@ -1,0 +1,38 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Pp]ublish/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+## WPF / MSBuild temp
+*_wpftmp.csproj
+*_wpftmp.vbproj
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+coverage*.xml
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+## OS
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## Local data (никогда не коммитим подписки/логи/ядра)
+*.log
+subscription.txt
+ipc.token
+ipc.allow
