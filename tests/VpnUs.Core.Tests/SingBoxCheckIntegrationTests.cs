@@ -99,6 +99,66 @@ public class SingBoxCheckIntegrationTests
         Assert.True(failures.Count == 0, "sing-box check не принял конфиг:\n" + string.Join("\n", failures));
     }
 
+    [Fact]
+    public void GeneratedConfig_WithRealLocalRuleSets_IsAcceptedByRealSingBox()
+    {
+        var core = FindCore();
+        if (core is null || !Directory.Exists(VpnUsPaths.RuleSetsDir))
+        {
+            return;
+        }
+
+        var files = Directory.GetFiles(VpnUsPaths.RuleSetsDir, "*.srs");
+        if (files.Length == 0)
+        {
+            return;
+        }
+
+        var nodes = File.Exists(VpnUsPaths.NodesFile)
+            ? JsonStore.Load(VpnUsPaths.NodesFile, () => new List<ServerNode>())
+            : ShareLinkParser.ParseSubscription(ShareLinkParserTests.SamplePlainBody()).Nodes;
+
+        if (nodes.Count == 0)
+        {
+            return;
+        }
+
+        var settings = JsonStore.Load(VpnUsPaths.SettingsFile, () => new AppSettings());
+        settings.Mode = RoutingMode.PerApp;
+        settings.BypassGames = true;
+        settings.BlockAds = true;
+
+        var workDir = Path.Combine(Path.GetTempPath(), "vpnus-check-local-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        var configPath = Path.Combine(workDir, "config.json");
+
+        try
+        {
+            var json = SingBoxConfigBuilder.BuildJson(settings, nodes, new SingBoxBuildOptions
+            {
+                CachePath = Path.Combine(workDir, "cache.db"),
+                ClashApiPort = 19093,
+                // Реальный кэш службы: проверяем, что sing-box принимает local-rule-set c format=binary.
+                RuleSetDirectory = VpnUsPaths.RuleSetsDir,
+            });
+
+            File.WriteAllText(configPath, json);
+            var (exitCode, output) = RunCheck(core, configPath, workDir);
+
+            Assert.True(exitCode == 0, "sing-box check: " + output);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(workDir, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
     private static (int ExitCode, string Output) RunCheck(string core, string configPath, string workDir)
     {
         var psi = new ProcessStartInfo(core)

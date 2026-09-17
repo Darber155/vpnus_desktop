@@ -92,6 +92,7 @@ public static class SingBoxConfigBuilder
                 {
                     ["type"] = "local",
                     ["tag"] = tag,
+                    ["format"] = "binary",
                     ["path"] = path,
                 });
             }

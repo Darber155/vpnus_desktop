@@ -294,6 +294,7 @@ public class SingBoxConfigBuilderTests
             var ruleSets = partial["route"]!["rule_set"]!.AsArray();
             Assert.Single(ruleSets);
             Assert.Equal("local", ruleSets[0]!["type"]!.GetValue<string>());
+            Assert.Equal("binary", ruleSets[0]!["format"]!.GetValue<string>());
             Assert.Equal(RuleSetCatalog.TagRefilterDomains, ruleSets[0]!["tag"]!.GetValue<string>());
             Assert.Contains(dir, ruleSets[0]!["path"]!.GetValue<string>());
 
