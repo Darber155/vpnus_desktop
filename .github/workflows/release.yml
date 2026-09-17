@@ -61,13 +61,31 @@ jobs:
         run: Get-ChildItem dist | Select-Object Name, @{n='MB';e={[Math]::Round($_.Length/1MB,1)}}
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.value }}
-          name: VpnUs ${{ steps.version.outputs.value }}
-          generate_release_notes: true
-          files: |
-            dist/VpnUs-Setup-*-x64.exe
-            dist/VpnUs-Setup-*-arm64.exe
-            dist/VpnUs-portable-*-x64.zip
-            dist/VpnUs-portable-*-arm64.zip
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ steps.version.outputs.value }}"
+          $assets = Get-ChildItem dist -File | Where-Object { $_.Name -like 'VpnUs-*' }
+          if ($assets.Count -eq 0) { throw "нет файлов в dist" }
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "VpnUs ${{ steps.version.outputs.value }}" --notes "Автосборка $tag" --verify-tag
+          }
+
+          # GitHub иногда отвечает 5xx при параллельной загрузке крупных файлов, поэтому
+          # грузим строго последовательно и с повторами.
+          foreach ($asset in $assets) {
+            $ok = $false
+            for ($i = 1; $i -le 5 -and -not $ok; $i++) {
+              gh release upload $tag $asset.FullName --clobber
+              $ok = $LASTEXITCODE -eq 0
+              if (-not $ok) {
+                Write-Host "повтор $i для $($asset.Name)"
+                Start-Sleep -Seconds 10
+              }
+            }
+            if (-not $ok) { throw "не удалось загрузить $($asset.Name)" }
+            Write-Host "загружен $($asset.Name)"
+          }
