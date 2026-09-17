@@ -27,7 +27,7 @@ public sealed class AppRelease
 /// Проверка и загрузка обновлений приложения с GitHub Releases
 /// (репозиторий Darber155/vpnus_desktop, публичный — токен не нужен).
 /// </summary>
-public sealed class AppUpdateService
+public sealed class AppUpdateService : IDisposable
 {
     public const string Owner = "Darber155";
     public const string Repository = "vpnus_desktop";
@@ -140,6 +140,8 @@ public sealed class AppUpdateService
                    a.Name.Contains(arch, StringComparison.OrdinalIgnoreCase)) ??
                release.Assets.FirstOrDefault(a => a.Name.Contains(kind, StringComparison.OrdinalIgnoreCase));
     }
+
+    public void Dispose() => _http.Dispose();
 
     public async Task DownloadAsync(string url, string targetPath, IProgress<double>? progress = null, CancellationToken ct = default)
     {
