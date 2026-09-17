@@ -27,6 +27,9 @@ public sealed class AppSettings
     public string TunInterface { get; set; } = "happwrt0";
     public int TunMtu { get; set; } = 9000;
     public int ClashApiPort { get; set; } = 9090;
+
+    /// <summary>Локальный mixed-прокси службы (через него скачиваются rule-set'ы и идут служебные запросы).</summary>
+    public int LocalProxyPort { get; set; } = 2081;
     public string LogLevel { get; set; } = "warn";
     public string UrlTestUrl { get; set; } = "http://cp.cloudflare.com/generate_204";
     public string UrlTestInterval { get; set; } = "3m";

@@ -10,6 +10,13 @@ public sealed record SingBoxBuildOptions
     public string CachePath { get; init; } = "cache.db";
     public bool EnableClashApi { get; init; } = true;
     public string LogLevel { get; init; } = "warn";
+
+    /// <summary>������� ���������� ���� .srs. ���� ����� � rule-set'� ������������ ������ �� ����
+    /// (������������� ����� ������ ������������, sing-box �� ������ ��� ����).</summary>
+    public string? RuleSetDirectory { get; init; }
+
+    /// <summary>���� ���������� mixed-������ ������ (0 � �� ���������).</summary>
+    public int LocalProxyPort { get; init; }
 }
 
 /// <summary>
@@ -62,51 +69,50 @@ public static class SingBoxConfigBuilder
 
         var ruleSetJson = new JsonArray();
         var ruleSetTags = new HashSet<string>(StringComparer.Ordinal);
+        var localRuleSetDir = options.RuleSetDirectory;
 
         void AddRuleSet(string tag, string url)
         {
-            if (!hasProxy || !ruleSetTags.Add(tag))
+            if (!hasProxy || ruleSetTags.Contains(tag))
             {
                 return;
             }
 
-            ruleSetJson.Add(new JsonObject
+            if (!string.IsNullOrWhiteSpace(localRuleSetDir))
             {
-                ["type"] = "remote",
-                ["tag"] = tag,
-                ["url"] = url,
-                ["download_detour"] = "proxy",
-                ["update_interval"] = "7d",
-            });
-        }
-
-        if (gamesEnabled)
-        {
-            AddRuleSet(RuleSetCatalog.TagGames, RuleSetCatalog.GeositeUrl("category-games"));
-        }
-
-        switch (settings.Mode)
-        {
-            case RoutingMode.BypassBlocked:
-                AddRuleSet(RuleSetCatalog.TagRefilterDomains, RuleSetCatalog.RefilterDomainsUrl);
-                AddRuleSet(RuleSetCatalog.TagRefilterIps, RuleSetCatalog.RefilterIpsUrl);
-                break;
-            case RoutingMode.Selective:
-                foreach (var name in selective)
+                // Локальный кэш службы: если файла нет — набор не подключаем совсем.
+                // Это гарантирует, что недоступность GitHub не помешает sing-box стартовать.
+                var path = Path.Combine(localRuleSetDir!, RuleSetCatalog.FileName(tag));
+                if (!File.Exists(path))
                 {
-                    AddRuleSet(RuleSetCatalog.GeositeTag(name), RuleSetCatalog.GeositeUrl(name));
+                    return;
                 }
 
-                break;
-            case RoutingMode.BypassRu:
-                AddRuleSet(RuleSetCatalog.TagRuDomains, RuleSetCatalog.GeositeUrl("category-ru"));
-                AddRuleSet(RuleSetCatalog.TagRuIps, RuleSetCatalog.GeoipUrl("ru"));
-                break;
+                ruleSetJson.Add(new JsonObject
+                {
+                    ["type"] = "local",
+                    ["tag"] = tag,
+                    ["path"] = path,
+                });
+            }
+            else
+            {
+                ruleSetJson.Add(new JsonObject
+                {
+                    ["type"] = "remote",
+                    ["tag"] = tag,
+                    ["url"] = url,
+                    ["download_detour"] = "proxy",
+                    ["update_interval"] = "7d",
+                });
+            }
+
+            ruleSetTags.Add(tag);
         }
 
-        if (adsEnabled)
+        foreach (var (tag, url) in RuleSetCatalog.RequiredFor(settings))
         {
-            AddRuleSet(RuleSetCatalog.TagAds, RuleSetCatalog.GeositeUrl("category-ads-all"));
+            AddRuleSet(tag, url);
         }
 
         var rules = new JsonArray();
@@ -146,6 +152,18 @@ public static class SingBoxConfigBuilder
         // База: sniff для доменов, перехват DNS, локальные сети напрямую.
         AddRule(new JsonObject { ["action"] = "sniff" });
         AddRule(new JsonObject { ["port"] = 53, ["action"] = "hijack-dns" });
+
+        // Локальный прокси-вход службы (скачивание rule-set'ов и служебные запросы) — всегда через proxy.
+        if (hasProxy && options.LocalProxyPort is > 0)
+        {
+            AddRule(new JsonObject
+            {
+                ["inbound"] = StringArray("local-in"),
+                ["action"] = "route",
+                ["outbound"] = "proxy",
+            });
+        }
+
         AddRule(new JsonObject { ["ip_is_private"] = true, ["action"] = "route", ["outbound"] = "direct" });
 
         // Собственные процессы и системные обновления никогда не заворачиваем в VPN.
@@ -278,7 +296,7 @@ public static class SingBoxConfigBuilder
                 ["timestamp"] = true,
             },
             ["dns"] = dns,
-            ["inbounds"] = new JsonArray(tun),
+            ["inbounds"] = BuildInbounds(settings, tun, options, hasProxy),
             ["outbounds"] = BuildOutbounds(settings, nodesList),
             ["route"] = route,
             ["experimental"] = experimental,
@@ -295,6 +313,24 @@ public static class SingBoxConfigBuilder
 
     public static string BuildJson(AppSettings settings, IReadOnlyList<ServerNode> nodes, SingBoxBuildOptions? options = null)
         => Build(settings, nodes, options).ToJsonString(IndentedJson);
+
+    private static JsonArray BuildInbounds(AppSettings settings, JsonObject tun, SingBoxBuildOptions options, bool hasProxy)
+    {
+        var inbounds = new JsonArray { tun };
+
+        if (hasProxy && options.LocalProxyPort is > 0)
+        {
+            inbounds.Add(new JsonObject
+            {
+                ["type"] = "mixed",
+                ["tag"] = "local-in",
+                ["listen"] = "127.0.0.1",
+                ["listen_port"] = options.LocalProxyPort,
+            });
+        }
+
+        return inbounds;
+    }
 
     private static JsonArray BuildOutbounds(AppSettings settings, IReadOnlyList<ServerNode> nodes)
     {

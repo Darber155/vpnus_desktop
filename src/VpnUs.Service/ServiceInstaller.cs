@@ -141,6 +141,14 @@ public static class ServiceInstaller
             return (true, null);
         }
 
+        // Файлы уже лежат в Program Files (служба установлена инсталлятором) — копировать не нужно,
+        // иначе получим дубликат дерева файлов.
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (sourceDir.StartsWith(programFiles, StringComparison.OrdinalIgnoreCase))
+        {
+            return (true, null);
+        }
+
         try
         {
             Directory.CreateDirectory(target);

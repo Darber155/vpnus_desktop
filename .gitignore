@@ -14,6 +14,11 @@
 *_wpftmp.csproj
 *_wpftmp.vbproj
 
+## Distributives
+dist/
+staging/
+installer/Output/
+
 ## Test results
 [Tt]est[Rr]esult*/
 *.trx

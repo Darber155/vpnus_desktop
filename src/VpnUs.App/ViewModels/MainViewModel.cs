@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VpnUs.Core.Update;
 using VpnUs.App.Services;
 using VpnUs.Core.Clash;
 using VpnUs.Core.Ipc;
@@ -99,10 +101,114 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _serviceAvailable;
 
+    [ObservableProperty]
+    private string _updateStatus = "";
+
+    [ObservableProperty]
+    private string _updateProgress = "";
+
+    [ObservableProperty]
+    private bool _updateAvailable;
+
+    [ObservableProperty]
+    private bool _checkingUpdates;
+
+    [ObservableProperty]
+    private AppRelease? _availableRelease;
+
+    public string VersionText => $"VpnUs {AppUpdateService.CurrentVersion}" +
+                                 (VpnUsPaths.IsPortable ? " · портативная" : "");
+
+    public string ReleasesUrl => AppUpdateService.ReleasesPageUrl;
+
+    private readonly AppUpdater _appUpdater = new();
+
     public async Task InitializeAsync()
     {
         await PollAsync();
         await LoadStateAsync();
+
+        if (UiPreferences.CheckUpdatesOnStart)
+        {
+            await CheckUpdatesAsync(silent: true);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckUpdatesAsync(bool silent = false)
+    {
+        if (CheckingUpdates)
+        {
+            return;
+        }
+
+        CheckingUpdates = true;
+        if (!silent)
+        {
+            UpdateStatus = "Проверяю обновления на GitHub...";
+        }
+
+        try
+        {
+            var release = await _appUpdater.CheckAsync();
+            UiPreferences.LastUpdateCheck = DateTimeOffset.Now;
+            SaveUiPreferences();
+
+            if (release is null)
+            {
+                UpdateStatus = "Не удалось получить информацию о релизах";
+                UpdateAvailable = false;
+                return;
+            }
+
+            AvailableRelease = release;
+            UpdateAvailable = release.IsNewer;
+
+            if (release.IsNewer)
+            {
+                UpdateStatus = $"Доступна версия {release.Version} (у вас {AppUpdateService.CurrentVersion})";
+                if (silent)
+                {
+                    App.Instance.Tray?.Notify($"Доступно обновление VpnUs {release.Version}");
+                }
+            }
+            else
+            {
+                UpdateStatus = $"У вас последняя версия {AppUpdateService.CurrentVersion}";
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            UpdateStatus = silent ? "" : "Ошибка проверки обновлений: " + ex.Message;
+            UpdateAvailable = false;
+        }
+        finally
+        {
+            CheckingUpdates = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ApplyUpdateAsync()
+    {
+        var release = AvailableRelease;
+        if (release is null)
+        {
+            return;
+        }
+
+        UpdateProgress = "Скачиваю 0%";
+        var progress = new Progress<double>(value => UpdateProgress = $"Скачиваю {value * 100:0}%");
+
+        var (ok, message) = await _appUpdater.DownloadAndApplyAsync(release, progress);
+        UpdateStatus = message;
+        UpdateProgress = "";
+
+        if (ok)
+        {
+            await Task.Delay(1500);
+            App.Instance.ExitApp();
+        }
     }
 
     partial void OnSelectedNavChanged(NavItem? value)

@@ -1,8 +1,11 @@
+using VpnUs.Core.Models;
+
 namespace VpnUs.Core.Config;
 
 /// <summary>
-/// Источники rule-set'ов sing-box. Кэширование выполняет сам sing-box через
-/// experimental.cache_file (options.CachePath), скачивание идёт через outbound "proxy".
+/// Каталог rule-set'ов: какие наборы нужны режиму и как они называются на диске.
+/// Служба скачивает .srs в кэш (ProgramData\VpnUs\rulesets) и ссылается на локальные файлы —
+/// тогда sing-box не падает, если GitHub/прокси недоступны при старте.
 /// </summary>
 public static class RuleSetCatalog
 {
@@ -28,4 +31,59 @@ public static class RuleSetCatalog
     public static string GeositeTag(string name) => $"geosite-{name}";
 
     public static string GeoipTag(string name) => $"geoip-{name}";
+
+    public static string FileName(string tag) => tag + ".srs";
+
+    /// <summary>Наборы, необходимые текущим настройкам (тег → URL).</summary>
+    public static List<(string Tag, string Url)> RequiredFor(AppSettings settings)
+    {
+        var result = new List<(string Tag, string Url)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        void Add(string tag, string url)
+        {
+            if (seen.Add(tag))
+            {
+                result.Add((tag, url));
+            }
+        }
+
+        var selective = settings.SelectiveRuleSets
+            .Where(RoutingModeInfo.SelectiveRuleSets.Contains)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (settings.BypassGames || selective.Contains("category-games", StringComparer.OrdinalIgnoreCase))
+        {
+            Add(TagGames, GeositeUrl("category-games"));
+        }
+
+        switch (settings.Mode)
+        {
+            case RoutingMode.BypassBlocked:
+                Add(TagRefilterDomains, RefilterDomainsUrl);
+                Add(TagRefilterIps, RefilterIpsUrl);
+                break;
+
+            case RoutingMode.Selective:
+                foreach (var name in selective)
+                {
+                    Add(GeositeTag(name), GeositeUrl(name));
+                }
+
+                break;
+
+            case RoutingMode.BypassRu:
+                Add(TagRuDomains, GeositeUrl("category-ru"));
+                Add(TagRuIps, GeoipUrl("ru"));
+                break;
+        }
+
+        if (settings.BlockAds)
+        {
+            Add(TagAds, GeositeUrl("category-ads-all"));
+        }
+
+        return result;
+    }
 }

@@ -32,7 +32,7 @@ public class SingBoxRuntimeTests
     }
 
     [Fact]
-    public void RuntimeStart_WithMixedInbound_Works()
+    public async Task RuntimeStart_WithMixedInbound_Works()
     {
         var core = VpnUsPaths.CoreExe;
         if (!File.Exists(core))
@@ -69,6 +69,8 @@ public class SingBoxRuntimeTests
             {
                 CachePath = Path.Combine(workDir, "cache.db"),
                 ClashApiPort = clashPort,
+                // Локальный кэш rule-set'ов пуст: наборы пропускаются, старт не зависит от сети.
+                RuleSetDirectory = Path.Combine(workDir, "rulesets"),
             });
 
             // TUN требует прав администратора: в тесте подменяем его на mixed-in.
@@ -121,7 +123,7 @@ public class SingBoxRuntimeTests
 
                 try
                 {
-                    var response = http.GetAsync($"http://127.0.0.1:{clashPort}/version").GetAwaiter().GetResult();
+                    var response = await http.GetAsync($"http://127.0.0.1:{clashPort}/version");
                     if (response.IsSuccessStatusCode)
                     {
                         ready = true;
@@ -132,7 +134,7 @@ public class SingBoxRuntimeTests
                 {
                 }
 
-                Thread.Sleep(300);
+                await Task.Delay(300);
             }
 
             string text;

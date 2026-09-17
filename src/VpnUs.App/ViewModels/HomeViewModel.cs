@@ -202,7 +202,7 @@ public sealed partial class HomeViewModel : ObservableObject
         "bypassru" => "Всё через VPN, кроме РФ",
         "global" => "Global (всё через VPN)",
         "perapp" => "Только выбранные приложения",
-        _ => mode,
+        _ => mode ?? "",
     };
 
     private static string AppSplitName(string split) => split?.Trim().ToLowerInvariant() switch
@@ -210,6 +210,6 @@ public sealed partial class HomeViewModel : ObservableObject
         "allthroughvpn" => "все приложения через VPN",
         "onlyselected" => "только выбранные приложения",
         "allexceptselected" => "все, кроме выбранных приложений",
-        _ => split,
+        _ => split ?? "",
     };
 }

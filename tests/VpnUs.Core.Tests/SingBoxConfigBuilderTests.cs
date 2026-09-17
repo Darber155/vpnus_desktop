@@ -272,6 +272,57 @@ public class SingBoxConfigBuilderTests
     }
 
     [Fact]
+    public void Build_LocalRuleSetCache_SkipsMissingFilesAndUsesExisting()
+    {
+        var (settings, nodes) = Fixture();
+        settings.Mode = RoutingMode.BypassBlocked;
+
+        var dir = Path.Combine(Path.GetTempPath(), "vpnus-rs-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            // Файлов нет → наборы не подключаем, но конфиг валиден и старт не упадёт.
+            var empty = Build(settings, nodes, new SingBoxBuildOptions { RuleSetDirectory = dir });
+            Assert.Null(empty["route"]!["rule_set"]);
+            Assert.DoesNotContain(Rules(empty).OfType<JsonObject>(), r => r["rule_set"] is not null);
+
+            // Появился только один файл из двух — подключается только он, правила ссылаются лишь на него.
+            File.WriteAllBytes(Path.Combine(dir, RuleSetCatalog.FileName(RuleSetCatalog.TagRefilterDomains)), [0x01, 0x02, 0x03]);
+
+            var partial = Build(settings, nodes, new SingBoxBuildOptions { RuleSetDirectory = dir });
+            var ruleSets = partial["route"]!["rule_set"]!.AsArray();
+            Assert.Single(ruleSets);
+            Assert.Equal("local", ruleSets[0]!["type"]!.GetValue<string>());
+            Assert.Equal(RuleSetCatalog.TagRefilterDomains, ruleSets[0]!["tag"]!.GetValue<string>());
+            Assert.Contains(dir, ruleSets[0]!["path"]!.GetValue<string>());
+
+            var proxyRule = Rules(partial).OfType<JsonObject>()
+                .First(r => r["rule_set"] is JsonArray arr && arr.Any(v => v!.GetValue<string>() == RuleSetCatalog.TagRefilterDomains));
+            var tags = proxyRule["rule_set"]!.AsArray().Select(v => v!.GetValue<string>()).ToList();
+            Assert.DoesNotContain(RuleSetCatalog.TagRefilterIps, tags);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Build_LocalProxyInbound_AddsRuleToRouteThroughProxy()
+    {
+        var (settings, nodes) = Fixture();
+        var config = Build(settings, nodes, new SingBoxBuildOptions { RuleSetDirectory = "x", LocalProxyPort = 2081 });
+
+        var inbounds = config["inbounds"]!.AsArray();
+        Assert.Contains(inbounds.OfType<JsonObject>(), i => i["tag"]?.GetValue<string>() == "local-in" && i["type"]?.GetValue<string>() == "mixed");
+
+        var rule = Rules(config).OfType<JsonObject>()
+            .First(r => r["inbound"] is JsonArray arr && arr.Any(v => v!.GetValue<string>() == "local-in"));
+        Assert.Equal("proxy", rule["outbound"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Build_WithoutNodes_DoesNotCrashAndStaysDirect()
     {
         var (settings, _) = Fixture();

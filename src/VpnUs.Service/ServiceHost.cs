@@ -15,6 +15,7 @@ public sealed class ServiceHost
     private readonly RingLog _log;
     private readonly SingBoxSupervisor _supervisor;
     private readonly CoreUpdater _updater;
+    private readonly RuleSetCache _ruleSetCache;
     private readonly SubscriptionClient _subscription = new();
     private readonly PipeServer _pipe;
     private readonly SemaphoreSlim _mutex = new(1, 1);
@@ -38,6 +39,7 @@ public sealed class ServiceHost
         _nodes = JsonStore.Load(VpnUsPaths.NodesFile, () => new List<ServerNode>());
         _supervisor = new SingBoxSupervisor(_log);
         _updater = new CoreUpdater(_log);
+        _ruleSetCache = new RuleSetCache(_log);
         _pipe = new PipeServer(_log, HandleAsync);
     }
 
@@ -110,6 +112,11 @@ public sealed class ServiceHost
                     _log.Error("Автоподключение не удалось: " + error);
                 }
             }
+            else
+            {
+                // Пробуем заранее скачать rule-set'ы напрямую (без прокси): первый коннект будет полным.
+                await RefreshRuleSetsAsync(restartIfChanged: false, _cts.Token).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -135,6 +142,8 @@ public sealed class ServiceHost
                     {
                         await RefreshSubscriptionAsync(ct).ConfigureAwait(false);
                     }
+
+                    await RefreshRuleSetsAsync(restartIfChanged: true, ct).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -246,7 +255,33 @@ public sealed class ServiceHost
         }
 
         await ApplySelectedNodeAsync().ConfigureAwait(false);
+        ScheduleRuleSetRefresh();
         return (true, null);
+    }
+
+    /// <summary>После поднятия туннеля докачиваем rule-set'ы через локальный прокси и, если что-то изменилось,
+    /// перезапускаем sing-box (не держим мьютекс во время сети).</summary>
+    private void ScheduleRuleSetRefresh()
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+                await _mutex.WaitAsync(_cts.Token).ConfigureAwait(false);
+                try
+                {
+                    await RefreshRuleSetsAsync(restartIfChanged: true, _cts.Token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _mutex.Release();
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+            }
+        }, CancellationToken.None);
     }
 
     private async Task ApplySelectedNodeAsync()
@@ -568,7 +603,39 @@ public sealed class ServiceHost
         CachePath = Path.Combine(VpnUsPaths.DataDir, "cache.db"),
         EnableClashApi = true,
         LogLevel = string.IsNullOrWhiteSpace(_settings.LogLevel) ? "warn" : _settings.LogLevel,
+        RuleSetDirectory = VpnUsPaths.RuleSetsDir,
+        LocalProxyPort = _settings.LocalProxyPort,
     };
+
+    /// <summary>Фоновое обновление rule-set'ов: сначала пробуем напрямую, затем через локальный прокси службы.</summary>
+    private async Task RefreshRuleSetsAsync(bool restartIfChanged, CancellationToken ct = default)
+    {
+        var sets = RuleSetCatalog.RequiredFor(_settings);
+        var stale = _ruleSetCache.Stale(sets);
+
+        if (stale.Count == 0)
+        {
+            return;
+        }
+
+        var proxy = _supervisor.IsRunning && _settings.LocalProxyPort is > 0
+            ? $"http://127.0.0.1:{_settings.LocalProxyPort}"
+            : null;
+
+        _log.Info($"Обновляю rule-set'ы: {stale.Count} набор(ов)" + (proxy is null ? " (напрямую)" : " (через прокси)"));
+
+        var updated = await _ruleSetCache.UpdateAsync(stale, proxy, ct).ConfigureAwait(false);
+
+        if (updated == 0 || !restartIfChanged || !_supervisor.IsRunning)
+        {
+            return;
+        }
+
+        _log.Info($"Загружено наборов: {updated} — перезапускаю туннель с новыми rule-set'ами");
+        WriteConfig();
+        await _supervisor.RestartAsync(ct).ConfigureAwait(false);
+        await ApplySelectedNodeAsync().ConfigureAwait(false);
+    }
 
     private string WriteConfig()
     {
@@ -587,6 +654,7 @@ public sealed class ServiceHost
         settings.SubscriptionUrl = settings.SubscriptionUrl?.Trim() ?? "";
         settings.SubscriptionUpdateHours = Math.Clamp(settings.SubscriptionUpdateHours, 1, 720);
         settings.ClashApiPort = settings.ClashApiPort is < 1024 or > 65535 ? 9090 : settings.ClashApiPort;
+        settings.LocalProxyPort = settings.LocalProxyPort is < 1024 or > 65535 ? 0 : settings.LocalProxyPort;
         settings.TunMtu = settings.TunMtu is < 576 or > 65535 ? 9000 : settings.TunMtu;
         settings.UrlTestInterval = string.IsNullOrWhiteSpace(settings.UrlTestInterval) ? "3m" : settings.UrlTestInterval;
         settings.UrlTestUrl = string.IsNullOrWhiteSpace(settings.UrlTestUrl) ? "http://cp.cloudflare.com/generate_204" : settings.UrlTestUrl;

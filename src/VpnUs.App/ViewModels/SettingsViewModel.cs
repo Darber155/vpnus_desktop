@@ -64,6 +64,25 @@ public sealed partial class SettingsViewModel : ObservableObject
         _main = main;
     }
 
+    /// <summary>Для биндингов карточки «Обновления».</summary>
+    public MainViewModel Main => _main;
+
+    public bool CheckUpdatesOnStart
+    {
+        get => _main.UiPreferences.CheckUpdatesOnStart;
+        set
+        {
+            if (_main.UiPreferences.CheckUpdatesOnStart == value)
+            {
+                return;
+            }
+
+            _main.UiPreferences.CheckUpdatesOnStart = value;
+            _main.SaveUiPreferences();
+            OnPropertyChanged();
+        }
+    }
+
     public ObservableCollection<int> UpdateHoursOptions { get; } = [1, 3, 6, 12, 24, 48, 72];
 
     public ObservableCollection<string> DnsStrategies { get; } = ["ipv4_only", "ipv6_only", "prefer_ipv4", "prefer_ipv6"];
@@ -106,6 +125,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private int _clashApiPort = 9090;
+
+    [ObservableProperty]
+    private int _localProxyPort = 2081;
 
     [ObservableProperty]
     private string _urlTestUrl = "http://cp.cloudflare.com/generate_204";
@@ -169,6 +191,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             TunInterface = settings.TunInterface;
             TunMtu = settings.TunMtu;
             ClashApiPort = settings.ClashApiPort;
+            LocalProxyPort = settings.LocalProxyPort;
             UrlTestUrl = settings.UrlTestUrl;
             UrlTestInterval = settings.UrlTestInterval;
             LogLevel = settings.LogLevel;
@@ -252,6 +275,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         settings.TunInterface = TunInterface.Trim();
         settings.TunMtu = TunMtu;
         settings.ClashApiPort = ClashApiPort;
+        settings.LocalProxyPort = LocalProxyPort;
         settings.UrlTestUrl = UrlTestUrl.Trim();
         settings.UrlTestInterval = UrlTestInterval.Trim();
         settings.LogLevel = LogLevel;
@@ -402,6 +426,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             Message = "Не удалось открыть папку: " + ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenReleases()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(_main.ReleasesUrl) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Message = ex.Message;
         }
     }
 
