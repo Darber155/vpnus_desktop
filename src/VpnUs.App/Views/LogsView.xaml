@@ -1,0 +1,82 @@
+<UserControl x:Class="VpnUs.App.Views.LogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:VpnUs.App.Converters">
+    <UserControl.Resources>
+        <conv:LogLevelToBrushConverter x:Key="LevelBrush" />
+
+        <Style x:Key="LogRow" TargetType="ListBoxItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Padding="6,2" Background="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="28,24,28,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Логи" Style="{StaticResource PageTitle}" />
+            <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,14" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ComboBox Width="130" ItemsSource="{Binding Levels}" SelectedItem="{Binding LevelFilter, Mode=TwoWay}" />
+            <CheckBox Grid.Column="1" Content="Автопрокрутка" Margin="14,0,0,0"
+                      IsChecked="{Binding AutoScroll, Mode=TwoWay}" VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="3" Orientation="Horizontal">
+                <Button Content="Пауза" Style="{StaticResource GhostButton}" Command="{Binding TogglePauseCommand}" />
+                <Button Content="Очистить" Style="{StaticResource GhostButton}" Command="{Binding ClearCommand}" />
+                <Button Content="Экспорт в файл" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                        Command="{Binding ExportCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="8">
+            <ListBox x:Name="LogList" ItemsSource="{Binding Lines}" ItemContainerStyle="{StaticResource LogRow}"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Time}" FontFamily="Cascadia Mono, Consolas, monospace"
+                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Level}" Margin="10,0,10,0"
+                                       FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
+                                       Foreground="{Binding Level, Converter={StaticResource LevelBrush}}"
+                                       MinWidth="46" />
+                            <TextBlock Grid.Column="2" Text="{Binding Message}"
+                                       FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </Grid>
+</UserControl>

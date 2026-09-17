@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>VpnUs.App</RootNamespace>
+    <AssemblyName>VpnUs</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SatelliteResourceLanguages>en;ru</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Page Remove="App.xaml" />
+    <Compile Remove="obj\**\*.cs" />
+    <Compile Remove="bin\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VpnUs.Core\VpnUs.Core.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyServiceToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <ServiceOutput Include="$(MSBuildThisFileDirectory)..\VpnUs.Service\bin\$(Configuration)\net8.0-windows\**\*.*"
+                     Exclude="$(MSBuildThisFileDirectory)..\VpnUs.Service\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ServiceOutput)"
+          DestinationFiles="@(ServiceOutput->'$(OutDir)service\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue"
+          Condition="'@(ServiceOutput)' != ''" />
+  </Target>
+
+</Project>

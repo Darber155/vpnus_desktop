@@ -1,0 +1,11 @@
+C:\projects\vpnus_desktop\src\VpnUs.Core\bin\Release\net8.0-windows\VpnUs.Core.deps.json
+C:\projects\vpnus_desktop\src\VpnUs.Core\bin\Release\net8.0-windows\VpnUs.Core.dll
+C:\projects\vpnus_desktop\src\VpnUs.Core\bin\Release\net8.0-windows\VpnUs.Core.pdb
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.AssemblyInfoInputs.cache
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.AssemblyInfo.cs
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.csproj.CoreCompileInputs.cache
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.dll
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\refint\VpnUs.Core.dll
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\VpnUs.Core.pdb
+C:\projects\vpnus_desktop\src\VpnUs.Core\obj\Release\net8.0-windows\ref\VpnUs.Core.dll

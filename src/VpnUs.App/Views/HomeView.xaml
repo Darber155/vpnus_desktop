@@ -1,0 +1,150 @@
+<UserControl x:Class="VpnUs.App.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:VpnUs.App.Converters">
+    <UserControl.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <Style x:Key="StatLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,24,28,28">
+            <TextBlock Text="Главная" Style="{StaticResource PageTitle}" />
+            <TextBlock Text="{Binding SubscriptionLabel}" Style="{StaticResource Caption}" Margin="0,0,0,16" />
+
+            <Border Style="{StaticResource Card}" Background="#22FF5C6C" BorderBrush="#55FF5C6C" Padding="14"
+                    Margin="0,0,0,16"
+                    Visibility="{Binding Error, Converter={StaticResource NullToVisibility}, ConverterParameter=null}">
+                <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{StaticResource DangerBrush}" />
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="26">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Command="{Binding ToggleCommand}" Cursor="Hand" Background="Transparent"
+                            BorderThickness="0" Padding="0" Width="196" Height="196">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Grid>
+                                    <Ellipse x:Name="Circle" Fill="{StaticResource AccentGradientBrush}" />
+                                    <Ellipse x:Name="Glow" Margin="6" Opacity="0.22">
+                                        <Ellipse.Fill>
+                                            <RadialGradientBrush>
+                                                <GradientStop Color="#FFFFFFFF" Offset="0" />
+                                                <GradientStop Color="#00FFFFFF" Offset="1" />
+                                            </RadialGradientBrush>
+                                        </Ellipse.Fill>
+                                    </Ellipse>
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ConnectButtonText}" FontSize="19" FontWeight="Bold"
+                                                   Foreground="White" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding ConnectButtonHint}" FontSize="11.5" Foreground="#CCFFFFFF"
+                                                   HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   TextAlignment="Center" MaxWidth="150" />
+                                    </StackPanel>
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter TargetName="Circle" Property="Fill" Value="{StaticResource ConnectGradientBrush}" />
+                                        <Setter TargetName="Glow" Property="Opacity" Value="0.12" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Circle" Property="Opacity" Value="0.9" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="Circle" Property="Opacity" Value="0.5" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <StackPanel Grid.Column="1" Margin="30,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusLabel}" FontSize="30" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding StatusHint}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+
+                        <Grid Margin="0,22,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Скачивание VPN" Style="{StaticResource StatLabel}" />
+                                <TextBlock Text="{Binding DownSpeed}" Style="{StaticResource StatValue}"
+                                           Foreground="{StaticResource SuccessBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Отдача VPN" Style="{StaticResource StatLabel}" />
+                                <TextBlock Text="{Binding UpSpeed}" Style="{StaticResource StatValue}"
+                                           Foreground="{StaticResource AccentBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="VPN ↓ всего" Style="{StaticResource StatLabel}" />
+                                <TextBlock Text="{Binding TotalDown}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="VPN ↑ всего" Style="{StaticResource StatLabel}" />
+                                <TextBlock Text="{Binding TotalUp}" Style="{StaticResource StatValue}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="{Binding SystemTotals}" Style="{StaticResource Caption}" Margin="0,10,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
+                            <Button Content="Обновить подписку" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding RefreshSubscriptionCommand}" />
+                            <TextBlock Text="{Binding CoreLabel}" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Сервер" Style="{StaticResource StatLabel}" />
+                        <TextBlock Text="{Binding ServerName}" Style="{StaticResource StatValue}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource Card}" Margin="16,0">
+                    <StackPanel>
+                        <TextBlock Text="Режим" Style="{StaticResource StatLabel}" />
+                        <TextBlock Text="{Binding ModeLabel}" Style="{StaticResource StatValue}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding AppsLabel}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Время работы" Style="{StaticResource StatLabel}" />
+                        <TextBlock Text="{Binding Uptime}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
