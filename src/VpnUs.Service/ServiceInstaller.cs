@@ -54,24 +54,21 @@ public static class ServiceInstaller
 
     private static int InstallCore()
     {
-        var exe = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(exe))
-        {
-            LogError("Не удалось определить путь к VpnUs.Service.exe");
-            return 1;
-        }
-
-        // Ставим службу в стабильную папку: иначе запущенная служба блокирует файлы bin-каталога
-        // и последующие сборки проекта не могут их обновить.
-        var (deployed, deployError) = DeployFiles();
-        if (!deployed)
+        var (servicePath, deployError) = DeployFiles();
+        if (servicePath is null)
         {
             LogError(deployError!);
             return 1;
         }
 
-        exe = Path.Combine(TargetDirectory, "VpnUs.Service.exe");
-        Log($"Файлы службы: {TargetDirectory}");
+        var exe = servicePath;
+        Log($"Файлы службы: {exe}");
+
+        if (!File.Exists(exe))
+        {
+            LogError($"Не найден {exe} — переустановите приложение.");
+            return 1;
+        }
 
         var results = new List<(string Args, int Code, string Output)>();
         var create = RunSc("create", ServiceName, "binPath=", $"\"{exe}\" run", "start=", "auto", "DisplayName=", DisplayName);
@@ -127,26 +124,33 @@ public static class ServiceInstaller
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
         "VpnUs");
 
-    private static (bool Ok, string? Error) DeployFiles()
+    /// <summary>
+    /// Определяет, откуда запускать службу, и при необходимости копирует файлы в Program Files.
+    /// Правила: портативный режим или папка Program Files → регистрируем на месте;
+    /// иначе (сборка из bin) → копируем в Program Files\VpnUs, чтобы сборка не блокировала файлы.
+    /// </summary>
+    private static (string? ServiceExePath, string? Error) DeployFiles()
     {
-        var sourceDir = Path.GetDirectoryName(Environment.ProcessPath);
+        var processPath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(processPath))
+        {
+            return (null, "Не удалось определить путь к VpnUs.Service.exe");
+        }
+
+        var sourceDir = Path.GetDirectoryName(processPath);
         if (string.IsNullOrEmpty(sourceDir))
         {
-            return (false, "Не удалось определить папку с файлами службы");
+            return (null, "Не удалось определить папку с файлами службы");
         }
 
         var target = TargetDirectory;
-        if (string.Equals(sourceDir.TrimEnd('\\'), target.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
-        {
-            return (true, null);
-        }
-
-        // Файлы уже лежат в Program Files (служба установлена инсталлятором) — копировать не нужно,
-        // иначе получим дубликат дерева файлов.
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (sourceDir.StartsWith(programFiles, StringComparison.OrdinalIgnoreCase))
+
+        var (deploy, exePath) = VpnUsPaths.ResolveServiceInstallPath(processPath, target, programFiles);
+
+        if (!deploy)
         {
-            return (true, null);
+            return (exePath, null);
         }
 
         try
@@ -166,11 +170,11 @@ public static class ServiceInstaller
                 File.Copy(file, destination, overwrite: true);
             }
 
-            return (true, null);
+            return (Path.Combine(target, "VpnUs.Service.exe"), null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return (false, $"Не удалось скопировать файлы в {target}: {ex.Message}. Запустите установку от администратора.");
+            return (null, $"Не удалось скопировать файлы в {target}: {ex.Message}. Запустите установку от администратора.");
         }
     }
 

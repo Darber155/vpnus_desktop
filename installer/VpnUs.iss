@@ -53,6 +53,15 @@ Name: "autostart"; Description: "Запускать VpnUs при входе в W
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; Остатки прежних ручных установок службы: без этого можно случайно зарегистрировать
+; службу по старому пути в корне {app} (и она упадёт, т.к. Core уже новый).
+Type: files; Name: "{app}\VpnUs.Service.exe"
+Type: files; Name: "{app}\VpnUs.Service.dll"
+Type: files; Name: "{app}\VpnUs.Service.deps.json"
+Type: files; Name: "{app}\VpnUs.Service.runtimeconfig.json"
+Type: files; Name: "{app}\VpnUs.Service.pdb"
+
 [Icons]
 Name: "{group}\VpnUs"; Filename: "{app}\VpnUs.exe"
 Name: "{group}\{cm:UninstallProgram,VpnUs}"; Filename: "{uninstallexe}"

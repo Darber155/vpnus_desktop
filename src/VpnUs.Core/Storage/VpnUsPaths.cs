@@ -75,6 +75,13 @@ public static class VpnUsPaths
 
     public static void EnsureUserData() => Directory.CreateDirectory(UserRoot);
 
+    /// <summary>Куда регистрировать службу и нужно ли копировать её файлы.</summary>
+    public static (bool Deploy, string ExePath) ResolveServiceInstallPath(
+        string processPath,
+        string targetDirectory,
+        string programFilesDirectory)
+        => ServiceInstallPathResolver.Resolve(processPath, targetDirectory, programFilesDirectory, IsPortable);
+
     private static string? DetectPortableRoot()
     {
         try
