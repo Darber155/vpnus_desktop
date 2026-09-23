@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VpnUs.App.Services;
 using VpnUs.Core.Ipc;
+using VpnUs.Core.Text;
 using VpnUs.Core.Models;
 
 namespace VpnUs.App.ViewModels;
@@ -63,6 +64,9 @@ public sealed partial class HomeViewModel : ObservableObject
     private string _subscriptionLabel = "Подписка не обновлялась";
 
     [ObservableProperty]
+    private string _lastUpdateLabel = "Подписка ещё не обновлялась";
+
+    [ObservableProperty]
     private string _systemTotals = "";
 
     [ObservableProperty]
@@ -114,6 +118,8 @@ public sealed partial class HomeViewModel : ObservableObject
         SubscriptionLabel = status.SubscriptionUpdatedAt is null
             ? "Подписка не обновлялась"
             : $"Подписка обновлена {status.SubscriptionUpdatedAt.Value.LocalDateTime:dd.MM.yyyy HH:mm} · серверов: {status.NodeCount}";
+
+        LastUpdateLabel = RelativeTime.FormatSubscriptionUpdate(status.SubscriptionUpdatedAt);
 
         Error = string.IsNullOrWhiteSpace(status.LastError) ? null : status.LastError;
 
