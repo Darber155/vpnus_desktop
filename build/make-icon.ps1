@@ -1,4 +1,4 @@
-﻿# Генерирует installer/vpnus.ico (256x256 PNG-compressed ICO) без внешних зависимостей.
+# Генерирует installer/vpnus.ico (256x256 PNG-compressed ICO) без внешних зависимостей.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
@@ -6,6 +6,13 @@ $root = Split-Path -Parent $PSScriptRoot
 $iconDir = Join-Path $root 'installer'
 $target = Join-Path $iconDir 'vpnus.ico'
 if (-not (Test-Path $iconDir)) { New-Item -ItemType Directory -Path $iconDir | Out-Null }
+
+$sourceAsset = Join-Path $root 'src\VpnUs.App\Assets\icon.ico'
+if (Test-Path $sourceAsset) {
+    Copy-Item -Force $sourceAsset $target
+    Write-Host "icon: $target ($([Math]::Round((Get-Item $target).Length / 1024, 1)) КБ)"
+    return
+}
 
 $size = 256
 $bmp = New-Object System.Drawing.Bitmap $size, $size

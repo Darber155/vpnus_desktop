@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:VpnUs.App.ViewModels"
         xmlns:views="clr-namespace:VpnUs.App.Views"
         Title="VpnUs" Width="1180" Height="840" MinWidth="980" MinHeight="640"
+        Icon="Assets/icon.png"
         WindowStartupLocation="CenterScreen" UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Ideal">
     <Window.Resources>
@@ -40,10 +41,8 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Orientation="Horizontal" Margin="6,0,0,22">
-                    <Border Width="34" Height="34" CornerRadius="17" Background="{StaticResource AccentGradientBrush}">
-                        <TextBlock Text="V" FontWeight="Bold" FontSize="18" Foreground="White"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Image Source="Assets/icon.png" Width="34" Height="34"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="VpnUs" FontSize="17" FontWeight="SemiBold" />
                         <TextBlock Text="sing-box · per-app" Style="{StaticResource Caption}" FontSize="11.5" />

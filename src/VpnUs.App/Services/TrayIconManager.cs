@@ -80,6 +80,34 @@ public sealed class TrayIconManager : IDisposable
 
     private static Icon CreateIcon()
     {
+        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico");
+        if (System.IO.File.Exists(iconPath))
+        {
+            try
+            {
+                return new Icon(iconPath, 32, 32);
+            }
+            catch
+            {
+            }
+        }
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(processPath) && System.IO.File.Exists(processPath))
+        {
+            try
+            {
+                var exeIcon = Icon.ExtractAssociatedIcon(processPath);
+                if (exeIcon is not null)
+                {
+                    return new Icon(exeIcon, 32, 32);
+                }
+            }
+            catch
+            {
+            }
+        }
+
         using var bitmap = new Bitmap(32, 32);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
