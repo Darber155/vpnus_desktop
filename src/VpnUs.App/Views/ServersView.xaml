@@ -50,8 +50,20 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" Width="320"
-                     HorizontalAlignment="Left" />
+            <Grid Width="320" HorizontalAlignment="Left">
+                <TextBox x:Name="FilterBox" Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="10,8,28,8" />
+                <TextBlock Text="Поиск сервера..." Foreground="{StaticResource TextMutedBrush}" Margin="12,0,0,0"
+                           VerticalAlignment="Center" IsHitTestVisible="False"
+                           Visibility="{Binding ElementName=FilterBox, Path=Text, Converter={StaticResource NullToVisibility}, ConverterParameter=empty}" />
+                <Button Command="{Binding ClearFilterCommand}" Style="{StaticResource GhostButton}"
+                        Padding="0" Width="22" Height="22" HorizontalAlignment="Right" Margin="0,0,5,0"
+                        ToolTip="Очистить поиск"
+                        Visibility="{Binding Filter, Converter={StaticResource NullToVisibility}}">
+                    <TextBlock Text="✕" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+            </Grid>
 
             <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
                 <TextBlock Text="{Binding Hint}" Style="{StaticResource Caption}" />

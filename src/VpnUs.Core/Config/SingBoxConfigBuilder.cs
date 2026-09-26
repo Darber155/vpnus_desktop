@@ -471,6 +471,7 @@ public static class SingBoxConfigBuilder
                     if (settings.AppSplit == AppSplitMode.OnlySelected)
                     {
                         AddDnsProcessRules(selectedApps, "dns-proxy");
+                        AddDnsRuleSet([RuleSetCatalog.TagRefilterDomains], "dns-proxy");
                     }
                     else if (settings.AppSplit == AppSplitMode.AllExceptSelected)
                     {

@@ -89,6 +89,51 @@ public sealed class InstalledAppScanner
             .Select(p => new AppEntry { Name = p.Name, Path = p.Path, Source = "Запущено", IsRunning = true })
             .ToList();
 
+    /// <summary>
+    /// Разрешает ярлык .lnk Windows в целевой путь к исполняемому файлу (.exe).
+    /// </summary>
+    public static string? ResolveShortcut(string linkPath)
+    {
+        if (string.IsNullOrWhiteSpace(linkPath) || !File.Exists(linkPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var type = Type.GetTypeFromProgID("WScript.Shell");
+            if (type is null)
+            {
+                return null;
+            }
+
+            var shell = Activator.CreateInstance(type);
+            try
+            {
+                dynamic dShell = shell!;
+                var target = (string?)dShell.CreateShortcut(linkPath).TargetPath;
+                return string.IsNullOrWhiteSpace(target) ? null : target;
+            }
+            finally
+            {
+                if (shell is not null)
+                {
+                    try
+                    {
+                        Marshal.FinalReleaseComObject(shell);
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidCastException)
+                    {
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
     private static void Merge(
         Dictionary<string, AppEntry> map,
         string name,

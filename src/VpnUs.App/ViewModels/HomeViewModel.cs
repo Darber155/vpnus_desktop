@@ -201,6 +201,12 @@ public sealed partial class HomeViewModel : ObservableObject
         await _main.RefreshSubscriptionAsync();
     }
 
+    [RelayCommand]
+    private void OpenServers() => _main.NavigateTo(_main.Servers);
+
+    [RelayCommand]
+    private void OpenApps() => _main.NavigateTo(_main.Apps);
+
     private static string ModeName(string mode) => mode?.Trim().ToLowerInvariant() switch
     {
         "bypassblocked" => "Только заблокированное",

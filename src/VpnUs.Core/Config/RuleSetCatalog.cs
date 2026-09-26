@@ -60,6 +60,10 @@ public static class RuleSetCatalog
 
         switch (settings.Mode)
         {
+            case RoutingMode.PerApp:
+                Add(TagRefilterDomains, RefilterDomainsUrl);
+                break;
+
             case RoutingMode.BypassBlocked:
                 Add(TagRefilterDomains, RefilterDomainsUrl);
                 Add(TagRefilterIps, RefilterIpsUrl);

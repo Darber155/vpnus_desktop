@@ -82,6 +82,9 @@ public sealed partial class ServersViewModel : ObservableObject
     [ObservableProperty]
     private string _filter = "";
 
+    [RelayCommand]
+    private void ClearFilter() => Filter = "";
+
     [ObservableProperty]
     private bool _isTesting;
 

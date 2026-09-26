@@ -91,6 +91,13 @@ public class SingBoxConfigBuilderTests
         Assert.Contains(@"(?i)^C:\\Games\\MyGame\\.*$", regexes);
 
         Assert.Equal("dns-direct", config["dns"]!["final"]!.GetValue<string>());
+        Assert.True(RuleSetContains(config, RuleSetCatalog.TagRefilterDomains));
+
+        var dnsRules = config["dns"]!["rules"]!.AsArray();
+        var refilterDns = dnsRules.OfType<JsonObject>().FirstOrDefault(r =>
+            r["rule_set"] is JsonArray arr && arr.Any(v => v!.GetValue<string>() == RuleSetCatalog.TagRefilterDomains));
+        Assert.NotNull(refilterDns);
+        Assert.Equal("dns-proxy", refilterDns!["server"]!.GetValue<string>());
     }
 
     [Fact]

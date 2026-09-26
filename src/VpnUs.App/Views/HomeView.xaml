@@ -126,20 +126,30 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Style="{StaticResource Card}">
+                <Button Style="{StaticResource CardButton}" Command="{Binding OpenServersCommand}"
+                        ToolTip="Нажмите, чтобы открыть список серверов">
                     <StackPanel>
-                        <TextBlock Text="Сервер" Style="{StaticResource StatLabel}" />
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Сервер" Style="{StaticResource StatLabel}" Margin="0" />
+                            <TextBlock Text="выбрать ➔" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}"
+                                       HorizontalAlignment="Right" FontSize="11" />
+                        </Grid>
                         <TextBlock Text="{Binding ServerName}" Style="{StaticResource StatValue}" TextWrapping="Wrap" />
                     </StackPanel>
-                </Border>
+                </Button>
 
-                <Border Grid.Column="1" Style="{StaticResource Card}" Margin="16,0">
+                <Button Grid.Column="1" Style="{StaticResource CardButton}" Margin="16,0" Command="{Binding OpenAppsCommand}"
+                        ToolTip="Нажмите, чтобы настроить приложения и режим">
                     <StackPanel>
-                        <TextBlock Text="Режим" Style="{StaticResource StatLabel}" />
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Режим" Style="{StaticResource StatLabel}" Margin="0" />
+                            <TextBlock Text="настроить ➔" Style="{StaticResource Caption}" Foreground="{StaticResource AccentBrush}"
+                                       HorizontalAlignment="Right" FontSize="11" />
+                        </Grid>
                         <TextBlock Text="{Binding ModeLabel}" Style="{StaticResource StatValue}" TextWrapping="Wrap" />
                         <TextBlock Text="{Binding AppsLabel}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <Border Grid.Column="2" Style="{StaticResource Card}">
                     <StackPanel>

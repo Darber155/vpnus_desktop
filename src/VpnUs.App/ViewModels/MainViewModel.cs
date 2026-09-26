@@ -238,6 +238,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    public void NavigateTo(object page)
+    {
+        var target = NavItems.FirstOrDefault(n => ReferenceEquals(n.Page, page));
+        if (target is not null)
+        {
+            SelectedNav = target;
+        }
+    }
+
     public async Task RefreshSubscriptionAsync()
     {
         var result = await _client.GetAsync<SubscriptionRefreshDto>(IpcCommands.RefreshSubscription);

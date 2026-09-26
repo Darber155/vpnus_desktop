@@ -15,6 +15,14 @@ public static class IconLoader
 {
     private static readonly Dictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
 
+    public static bool TryGetCached(string path, out ImageSource? cached)
+    {
+        lock (Cache)
+        {
+            return Cache.TryGetValue(path, out cached);
+        }
+    }
+
     public static ImageSource? TryLoad(string path)
     {
         lock (Cache)
@@ -54,7 +62,7 @@ public static class IconLoader
 public sealed partial class AppRowViewModel : ObservableObject
 {
     private ImageSource? _icon;
-    private bool _iconLoaded;
+    private bool _iconLoadingRequested;
 
     public AppRowViewModel(AppEntry entry)
     {
@@ -79,10 +87,28 @@ public sealed partial class AppRowViewModel : ObservableObject
     {
         get
         {
-            if (!_iconLoaded)
+            if (!_iconLoadingRequested)
             {
-                _iconLoaded = true;
-                _icon = IconLoader.TryLoad(Entry.Path);
+                _iconLoadingRequested = true;
+                if (IconLoader.TryGetCached(Entry.Path, out var cached))
+                {
+                    _icon = cached;
+                }
+                else
+                {
+                    _ = Task.Run(() =>
+                    {
+                        var loaded = IconLoader.TryLoad(Entry.Path);
+                        if (loaded is not null)
+                        {
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                            {
+                                _icon = loaded;
+                                OnPropertyChanged(nameof(Icon));
+                            });
+                        }
+                    });
+                }
             }
 
             return _icon;
@@ -464,6 +490,103 @@ public sealed partial class AppsViewModel : ObservableObject
 
         SelectedCount = _all.Count(a => a.IsSelected);
         Dirty = true;
+    }
+
+    [RelayCommand]
+    private void ClearSearch() => Search = "";
+
+    [RelayCommand]
+    private void SelectRunning()
+    {
+        var runningEntries = InstalledAppScanner.GetRunningProcessEntries();
+        var runningPaths = runningEntries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in _all)
+        {
+            if (runningPaths.Contains(row.Entry.Path) || row.IsRunning)
+            {
+                row.IsSelected = true;
+            }
+        }
+
+        var existingPaths = _all.Select(a => a.Entry.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var running in runningEntries)
+        {
+            if (!existingPaths.Contains(running.Path))
+            {
+                running.Selected = true;
+                _all.Insert(0, new AppRowViewModel(running));
+            }
+        }
+
+        SelectedCount = _all.Count(a => a.IsSelected);
+        Rebuild();
+        OnPropertyChanged(nameof(IsEmpty));
+        Dirty = true;
+        Status = $"Выбраны все запущенные приложения (всего {SelectedCount})";
+    }
+
+    public void AddDroppedFiles(IEnumerable<string> paths)
+    {
+        var added = 0;
+        foreach (var rawPath in paths)
+        {
+            var path = rawPath;
+            if (path.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+            {
+                var resolved = InstalledAppScanner.ResolveShortcut(path);
+                if (!string.IsNullOrWhiteSpace(resolved) && File.Exists(resolved))
+                {
+                    path = resolved;
+                }
+                else
+                {
+                    continue;
+                }
+            }
+
+            if (!path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                path = Path.GetFullPath(path);
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            var existing = _all.FirstOrDefault(a => string.Equals(a.Entry.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                existing.IsSelected = true;
+                added++;
+                continue;
+            }
+
+            var entry = new AppEntry
+            {
+                Name = Path.GetFileNameWithoutExtension(path),
+                Path = path,
+                Source = "Вручную",
+                Selected = true,
+            };
+
+            _all.Insert(0, new AppRowViewModel(entry));
+            added++;
+        }
+
+        if (added > 0)
+        {
+            SelectedCount = _all.Count(a => a.IsSelected);
+            Rebuild();
+            OnPropertyChanged(nameof(IsEmpty));
+            Dirty = true;
+            Status = $"Добавлено файлов: {added} (всего выбрано {SelectedCount})";
+        }
     }
 
     [RelayCommand]
