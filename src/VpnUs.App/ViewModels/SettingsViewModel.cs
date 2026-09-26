@@ -430,6 +430,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task CheckUpdatesAsync() => await _main.CheckUpdatesCommand.ExecuteAsync(null);
+
+    [RelayCommand]
+    private async Task ApplyUpdateAsync() => await _main.ApplyUpdateCommand.ExecuteAsync(null);
+
+    [RelayCommand]
     private void OpenReleases()
     {
         try

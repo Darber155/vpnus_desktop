@@ -130,12 +130,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (UiPreferences.CheckUpdatesOnStart)
         {
-            await CheckUpdatesAsync(silent: true);
+            await RunCheckUpdatesAsync(silent: true);
         }
     }
 
     [RelayCommand]
-    private async Task CheckUpdatesAsync(bool silent = false)
+    private async Task CheckUpdatesAsync() => await RunCheckUpdatesAsync(silent: false);
+
+    public Task CheckUpdatesSilentAsync() => RunCheckUpdatesAsync(silent: true);
+
+    private async Task RunCheckUpdatesAsync(bool silent)
     {
         if (CheckingUpdates)
         {
@@ -156,7 +160,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (release is null)
             {
-                UpdateStatus = "Не удалось получить информацию о релизах";
+                UpdateStatus = _appUpdater.LastCheckError ?? "Не удалось получить информацию о релизах";
                 UpdateAvailable = false;
                 return;
             }
