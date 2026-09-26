@@ -6,6 +6,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:DelayToBrushConverter x:Key="DelayToBrush" />
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
 
         <Style x:Key="ServerRow" TargetType="ListBoxItem">
             <Setter Property="Cursor" Value="Hand" />

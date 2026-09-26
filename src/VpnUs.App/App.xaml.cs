@@ -33,6 +33,9 @@ public partial class App : Application
 
         VpnUsPaths.EnsureUserData();
 
+        string? lastErrorMessage = null;
+        DateTimeOffset lastErrorTime = DateTimeOffset.MinValue;
+
         DispatcherUnhandledException += (_, args) =>
         {
             UiLog.Write("unhandled", args.Exception.ToString());
@@ -44,8 +47,18 @@ public partial class App : Application
                   $"Подробности записаны в {VpnUsPaths.UiLogFile}"
                 : "Ошибка: " + args.Exception.Message;
 
-            MessageBox.Show(message, "VpnUs", MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
+
+            var now = DateTimeOffset.Now;
+            if (string.Equals(lastErrorMessage, message, StringComparison.Ordinal) && (now - lastErrorTime).TotalSeconds < 2)
+            {
+                return;
+            }
+
+            lastErrorMessage = message;
+            lastErrorTime = now;
+
+            MessageBox.Show(message, "VpnUs", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
 
         Client = new ServiceClient();
