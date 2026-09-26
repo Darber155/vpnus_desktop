@@ -180,27 +180,50 @@ public static class ShareLinkParser
         return new LinkParts(scheme, rest, query, name);
     }
 
-    private static string Pct(string s)
+    public static string Pct(string s)
     {
-        var sb = new StringBuilder(s.Length);
+        if (string.IsNullOrEmpty(s))
+        {
+            return "";
+        }
+
+        try
+        {
+            return Uri.UnescapeDataString(s);
+        }
+        catch (UriFormatException)
+        {
+            return UnescapeUtf8Fallback(s);
+        }
+    }
+
+    private static string UnescapeUtf8Fallback(string s)
+    {
+        var bytes = new List<byte>(s.Length);
         for (var i = 0; i < s.Length; i++)
         {
             var c = s[i];
-            if (c == '%' && i + 2 < s.Length)
+            if (c == '%' && i + 2 < s.Length &&
+                byte.TryParse(s.AsSpan(i + 1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
             {
-                var hex = s.Substring(i + 1, 2);
-                if (byte.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
+                bytes.Add(b);
+                i += 2;
+            }
+            else
+            {
+                if (char.IsSurrogate(c) && i + 1 < s.Length && char.IsSurrogatePair(c, s[i + 1]))
                 {
-                    sb.Append((char)value);
-                    i += 2;
-                    continue;
+                    bytes.AddRange(Encoding.UTF8.GetBytes(s.Substring(i, 2)));
+                    i++;
+                }
+                else
+                {
+                    bytes.AddRange(Encoding.UTF8.GetBytes([c]));
                 }
             }
-
-            sb.Append(c);
         }
 
-        return sb.ToString();
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private static Dictionary<string, string> ParseQuery(string q)
@@ -607,6 +630,11 @@ public static class ShareLinkParser
         }
 
         var name = Str(j, "ps");
+        if (name.Contains('%', StringComparison.Ordinal))
+        {
+            name = Pct(name);
+        }
+
         return Materialize(outbound, add, port, name.Length > 0 ? name : l.Name);
     }
 

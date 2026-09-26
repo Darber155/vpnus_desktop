@@ -243,4 +243,27 @@ public class ShareLinkParserTests
     {
         Assert.Equal(expected, ShareLinkParser.IsUuid(value));
     }
+
+    [Fact]
+    public void ParseLink_DecodesUtf8PercentEncodedNameWithFlag()
+    {
+        const string link =
+            "vless://91f816cf-b9b8-4715-b3c7-dca95b65e188@test.firm-maple.test-cdn-kkk.com:443?type=tcp&security=reality&flow=xtls-rprx-vision#%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20%F0%9F%87%A9%F0%9F%87%AA";
+
+        var node = ShareLinkParser.ParseLink(link);
+
+        Assert.NotNull(node);
+        Assert.Equal("Германия 🇩🇪", node!.Name);
+    }
+
+    [Theory]
+    [InlineData("\u00D0\u0093\u00D0\u00B5\u00D1\u0080\u00D0\u00BC\u00D0\u00B0\u00D0\u00BD\u00D0\u00B8\u00D1\u008F \u00F0\u009F\u0087\u00A9\u00F0\u009F\u0087\u00AA", "Германия 🇩🇪")]
+    [InlineData("\u00D0\u00A8\u00D0\u00B2\u00D0\u00B5\u00D1\u0086\u00D0\u00B8\u00D1\u008F \u00F0\u009F\u0087\u00B8\u00F0\u009F\u0087\u00AA", "Швеция 🇸🇪")]
+    [InlineData("Германия 🇩🇪", "Германия 🇩🇪")]
+    [InlineData("Server-01", "Server-01")]
+    public void ServerNode_FixesMojibakeInName(string rawName, string expected)
+    {
+        var node = new ServerNode { Name = rawName };
+        Assert.Equal(expected, node.Name);
+    }
 }

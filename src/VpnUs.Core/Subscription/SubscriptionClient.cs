@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using VpnUs.Core.Models;
 
 namespace VpnUs.Core.Subscription;
@@ -103,7 +104,8 @@ public sealed class SubscriptionClient : IDisposable
                     return result;
                 }
 
-                result.Body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                var bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                result.Body = Encoding.UTF8.GetString(bytes);
                 result.Success = true;
                 return result;
             }

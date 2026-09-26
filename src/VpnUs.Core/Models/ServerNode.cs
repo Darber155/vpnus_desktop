@@ -1,11 +1,20 @@
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace VpnUs.Core.Models;
 
 public sealed class ServerNode
 {
+    private string _name = "";
+
     public string Tag { get; set; } = "";
-    public string Name { get; set; } = "";
+
+    public string Name
+    {
+        get => _name;
+        set => _name = FixMojibake(value);
+    }
+
     public string Type { get; set; } = "";
     public string Server { get; set; } = "";
     public int ServerPort { get; set; }
@@ -16,6 +25,54 @@ public sealed class ServerNode
     public string Endpoint => ServerPort is > 0 and <= 65535 ? $"{Server}:{ServerPort}" : Server;
 
     public string FingerprintSource => $"{Type}|{Server}|{ServerPort}|{Name}";
+
+    public static string FixMojibake(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text ?? "";
+        }
+
+        var allUnder256 = true;
+        var hasHighByte = false;
+        foreach (var ch in text)
+        {
+            if (ch > 0xFF)
+            {
+                allUnder256 = false;
+                break;
+            }
+
+            if (ch >= 0x80)
+            {
+                hasHighByte = true;
+            }
+        }
+
+        if (allUnder256 && hasHighByte)
+        {
+            try
+            {
+                var bytes = new byte[text.Length];
+                for (var i = 0; i < text.Length; i++)
+                {
+                    bytes[i] = (byte)text[i];
+                }
+
+                var utf8 = new UTF8Encoding(false, throwOnInvalidBytes: true);
+                var decoded = utf8.GetString(bytes);
+                if (decoded != text && !decoded.Contains('\uFFFD'))
+                {
+                    return decoded;
+                }
+            }
+            catch (DecoderFallbackException)
+            {
+            }
+        }
+
+        return text;
+    }
 }
 
 public sealed class AppEntry

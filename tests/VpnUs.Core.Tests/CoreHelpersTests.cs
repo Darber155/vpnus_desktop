@@ -97,6 +97,9 @@ public class FlagHelperTests
     [InlineData("Germany-1", "\U0001F1E9\U0001F1EA")]
     [InlineData("DE-Frankfurt", "\U0001F1E9\U0001F1EA")]
     [InlineData("Tokyo Premium", "\U0001F1EF\U0001F1F5")]
+    [InlineData("Германия быстрый", "\U0001F1E9\U0001F1EA")]
+    [InlineData("Финляндия 01", "\U0001F1EB\U0001F1EE")]
+    [InlineData("Нидерланды", "\U0001F1F3\U0001F1F1")]
     public void Guess_DetectsCountryFromName(string name, string expectedFlag)
     {
         Assert.Equal(expectedFlag, FlagHelper.Guess(name));
