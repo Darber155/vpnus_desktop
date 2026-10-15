@@ -86,6 +86,27 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Видимая рамка фокуса для навигации с клавиатуры -->
+    <Style x:Key="FocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-3" CornerRadius="11" BorderThickness="2"
+                            BorderBrush="{StaticResource AccentBrush}" SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Статусная «пилюля» с точкой -->
+    <Style x:Key="Pill" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource ChipBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+
     <!-- Buttons -->
     <Style x:Key="ButtonBase" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
@@ -93,6 +114,7 @@
         <Setter Property="Padding" Value="16,9" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -129,6 +151,12 @@
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
@@ -136,7 +164,15 @@
         <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="10,6" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
+
+
 
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ButtonBase}">
         <Setter Property="Background" Value="#22FF5C6C" />
@@ -158,8 +194,7 @@
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="Root" Background="{StaticResource SurfaceAltBrush}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center" />
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
@@ -333,15 +368,22 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="ListBoxItem">
-                                <Border x:Name="Root" Background="Transparent" CornerRadius="10" Padding="12,10">
-                                    <ContentPresenter />
-                                </Border>
+                                <Grid>
+                                    <Border x:Name="Root" Background="Transparent" CornerRadius="10" Padding="14,10">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <Border x:Name="Indicator" Width="3" Height="18" CornerRadius="2"
+                                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Background="{StaticResource AccentGradientBrush}" Visibility="Collapsed" />
+                                </Grid>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter TargetName="Root" Property="Background" Value="{StaticResource ChipBrush}" />
+                                        <Setter TargetName="Indicator" Property="Visibility" Value="Visible" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>

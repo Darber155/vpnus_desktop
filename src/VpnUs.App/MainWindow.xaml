@@ -62,10 +62,65 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Margin="6,14,6,0">
-                    <TextBlock Text="{Binding ServiceStatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap" />
-                    <TextBlock Text="Данные не покидают машину" Style="{StaticResource Caption}" FontSize="10.5"
-                               Margin="0,6,0,0" Opacity="0.7" />
+                <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                    <!-- Быстрое подключение из боковой панели -->
+                    <Button Command="{Binding Home.ToggleCommand}" HorizontalContentAlignment="Stretch"
+                            AutomationProperties.Name="{Binding Home.ConnectButtonText}"
+                            ToolTip="{Binding Home.ConnectButtonHint}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                                <Setter Property="Padding" Value="12,10" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Home.StateKind}" Value="connected">
+                                        <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource SuccessSoftBorderBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Home.StateKind}" Value="connecting">
+                                        <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource WarningSoftBorderBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Home.StateKind}" Value="error">
+                                        <Setter Property="Background" Value="{StaticResource DangerSoftBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource DangerSoftBorderBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="9" Height="9" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="connected">
+                                                <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="connecting">
+                                                <Setter Property="Fill" Value="{StaticResource WarningBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="error">
+                                                <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Text="{Binding Home.StatusLabel}" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Home.DownSpeed, StringFormat=↓ {0}}" Style="{StaticResource Caption}"
+                                           FontSize="11" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
+                    <TextBlock Text="{Binding ServiceStatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Margin="6,12,6,0" FontSize="11.5" />
+                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Caption}" FontSize="10.5"
+                               Margin="6,4,6,0" Opacity="0.7" />
                 </StackPanel>
             </Grid>
         </Border>

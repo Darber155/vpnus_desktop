@@ -153,7 +153,7 @@ public sealed partial class AppsViewModel : ObservableObject
     private bool _isScanning;
 
     [ObservableProperty]
-    private string _status = "Нажмите «Обновить список», чтобы найти программы";
+    private string _status = "Нажмите «Обновить», чтобы найти программы";
 
     [ObservableProperty]
     private int _selectedCount;
@@ -176,9 +176,12 @@ public sealed partial class AppsViewModel : ObservableObject
 
     public bool IsPerAppMode => SelectedMode?.Mode == RoutingMode.PerApp;
 
+    public bool IsSelectiveMode => SelectedMode?.Mode == RoutingMode.Selective;
+
     partial void OnSelectedModeChanged(ModeOption? value)
     {
         OnPropertyChanged(nameof(IsPerAppMode));
+        OnPropertyChanged(nameof(IsSelectiveMode));
 
         if (value is null)
         {
@@ -299,6 +302,9 @@ public sealed partial class AppsViewModel : ObservableObject
         SyncSelectionFromDraft();
         Rebuild();
         OnPropertyChanged(nameof(IsEmpty));
+
+        // Загрузка сохранённых настроек — это не пользовательское изменение.
+        Dirty = false;
     }
 
     public async Task EnsureLoadedAsync()
@@ -368,6 +374,9 @@ public sealed partial class AppsViewModel : ObservableObject
 
             Apps.Add(row);
         }
+
+        OnPropertyChanged(nameof(VisibleCount));
+        OnPropertyChanged(nameof(HasNoVisible));
     }
 
     [RelayCommand]
@@ -646,7 +655,33 @@ public sealed partial class AppsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void MarkDirty() => Dirty = true;
+    private void MarkDirty()
+    {
+        SelectedCount = _all.Count(a => a.IsSelected);
+        Dirty = true;
+    }
+
+    [RelayCommand]
+    private void InvertVisible()
+    {
+        foreach (var row in Apps)
+        {
+            row.IsSelected = !row.IsSelected;
+        }
+
+        SelectedCount = _all.Count(a => a.IsSelected);
+        Dirty = true;
+        if (ShowOnlySelected)
+        {
+            Rebuild();
+        }
+    }
+
+    public int VisibleCount => Apps.Count;
+
+    public bool HasNoVisible => !IsScanning && Apps.Count == 0;
+
+    partial void OnIsScanningChanged(bool value) => OnPropertyChanged(nameof(HasNoVisible));
 
     private string SplitDescription() => SplitMode switch
     {

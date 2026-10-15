@@ -72,9 +72,40 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     private int _connectionCount;
 
-    public string ConnectButtonText => IsConnected ? "ОТКЛЮЧИТЬ" : "ПОДКЛЮЧИТЬ";
+    /// <summary>Визуальное состояние: connected / connecting / error / disconnected.</summary>
+    [ObservableProperty]
+    private string _stateKind = "disconnected";
 
-    public string ConnectButtonHint => IsConnected ? "Туннель активен" : "Нажмите, чтобы подключиться";
+    public string ConnectButtonText => StateKind switch
+    {
+        "connecting" => "...",
+        _ => IsConnected ? "ОТКЛЮЧИТЬ" : "ПОДКЛЮЧИТЬ",
+    };
+
+    public string ConnectButtonHint => StateKind switch
+    {
+        "connecting" => "Подождите",
+        "error" => "Повторить попытку",
+        _ => IsConnected ? "Туннель активен" : "Нажмите, чтобы подключиться",
+    };
+
+    public string ConnectionsLabel => ConnectionCount > 0 ? $"Активных соединений: {ConnectionCount}" : "";
+
+    partial void OnStateKindChanged(string value)
+    {
+        OnPropertyChanged(nameof(ConnectButtonText));
+        OnPropertyChanged(nameof(ConnectButtonHint));
+    }
+
+    partial void OnConnectionCountChanged(int value) => OnPropertyChanged(nameof(ConnectionsLabel));
+
+    private static string KindOf(string? state) => state?.ToLowerInvariant() switch
+    {
+        "running" => "connected",
+        "starting" or "stopping" => "connecting",
+        "error" => "error",
+        _ => "disconnected",
+    };
 
     public Task ToggleConnectionAsync() => ToggleAsync();
 
@@ -83,6 +114,7 @@ public sealed partial class HomeViewModel : ObservableObject
         if (status is null)
         {
             IsConnected = false;
+            StateKind = "disconnected";
             StatusLabel = "Отключено";
             StatusHint = _client.IsServiceInstalled ? "Служба не отвечает" : "Служба не установлена — откройте «Настройки»";
             CoreLabel = "Ядро не найдено";
@@ -91,6 +123,10 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         IsConnected = string.Equals(status.State, "running", StringComparison.OrdinalIgnoreCase);
+        if (!IsBusy)
+        {
+            StateKind = KindOf(status.State);
+        }
 
         StatusLabel = status.State switch
         {
@@ -168,6 +204,7 @@ public sealed partial class HomeViewModel : ObservableObject
 
         IsBusy = true;
         Error = null;
+        StateKind = "connecting";
         StatusLabel = IsConnected ? "Отключение..." : "Подключение...";
 
         try
@@ -179,9 +216,11 @@ public sealed partial class HomeViewModel : ObservableObject
             {
                 Error = _client.LastError ?? "Служба недоступна";
                 StatusLabel = "Отключено";
+                StateKind = "error";
                 return;
             }
 
+            IsBusy = false;
             ApplyStatus(status);
             if (!string.IsNullOrEmpty(status.LastError))
             {
