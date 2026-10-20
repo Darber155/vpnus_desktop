@@ -11,20 +11,29 @@ using VpnUs.Core.Storage;
 
 namespace VpnUs.App.ViewModels;
 
-public sealed class NavItem
+public sealed partial class NavItem : ObservableObject
 {
-    public NavItem(string title, string glyph, ObservableObject page)
+    public NavItem(string key, string title, string glyph, ObservableObject page)
     {
+        Key = key;
         Title = title;
         Glyph = glyph;
         Page = page;
     }
+
+    public string Key { get; }
 
     public string Title { get; }
 
     public string Glyph { get; }
 
     public ObservableObject Page { get; }
+
+    [ObservableProperty]
+    private string _badge = "";
+
+    [ObservableProperty]
+    private bool _showBadge;
 }
 
 public sealed partial class MainViewModel : ObservableObject, IDisposable
@@ -47,24 +56,34 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _client = client;
 
         Home = new HomeViewModel(client, this);
-        Servers = new ServersViewModel(client);
+        Servers = new ServersViewModel(client, this);
         Apps = new AppsViewModel(client, this);
         Settings = new SettingsViewModel(client, this);
         Logs = new LogsViewModel(client);
 
         NavItems =
         [
-            new NavItem("Главная", "\uE80F", Home),
-            new NavItem("Серверы", "\uE774", Servers),
-            new NavItem("Приложения", "\uE71D", Apps),
-            new NavItem("Настройки", "\uE713", Settings),
-            new NavItem("Логи", "\uE9D9", Logs),
+            new NavItem("home", "Главная", "\uE80F", Home),
+            new NavItem("servers", "Серверы", "\uE774", Servers),
+            new NavItem("apps", "Приложения", "\uE71D", Apps),
+            new NavItem("settings", "Настройки", "\uE713", Settings),
+            new NavItem("logs", "Логи", "\uE9D9", Logs),
         ];
 
         UiPreferences = JsonStore.Load(VpnUsPaths.UiSettingsFile, () => new UiPreferences());
 
-        _selectedNav = NavItems[0];
-        Current = Home;
+        var startPage = NavItems.FirstOrDefault(
+            n => string.Equals(n.Key, UiPreferences.LastPage, StringComparison.OrdinalIgnoreCase)) ?? NavItems[0];
+        _selectedNav = startPage;
+        Current = startPage.Page;
+
+        Apps.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AppsViewModel.SelectedCount))
+            {
+                UpdateAppsBadge();
+            }
+        };
 
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         _pollTimer.Tick += async (_, _) => await PollAsync();
@@ -116,6 +135,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private AppRelease? _availableRelease;
 
+    [ObservableProperty]
+    private bool _isRefreshingSubscription;
+
     public string VersionText => $"VpnUs {AppUpdateService.CurrentVersion}" +
                                  (VpnUsPaths.IsPortable ? " · портативная" : "");
 
@@ -127,11 +149,65 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         await PollAsync();
         await LoadStateAsync();
+        await EnsureSelectedPageAsync();
 
         if (UiPreferences.CheckUpdatesOnStart)
         {
             await RunCheckUpdatesAsync(silent: true);
         }
+    }
+
+    private async Task EnsureSelectedPageAsync()
+    {
+        switch (SelectedNav?.Page)
+        {
+            case AppsViewModel apps:
+                await apps.EnsureLoadedAsync();
+                break;
+            case ServersViewModel servers:
+                await servers.EnsureLoadedAsync();
+                break;
+            case SettingsViewModel settings:
+                await settings.EnsureLoadedAsync();
+                break;
+            case LogsViewModel logs:
+                await logs.RebuildAsync();
+                break;
+        }
+    }
+
+    partial void OnUpdateAvailableChanged(bool value)
+    {
+        var settingsNav = NavItems.FirstOrDefault(n => n.Key == "settings");
+        if (settingsNav is not null)
+        {
+            settingsNav.Badge = "1";
+            settingsNav.ShowBadge = value;
+        }
+    }
+
+    private void UpdateAppsBadge()
+    {
+        var nav = NavItems.FirstOrDefault(n => n.Key == "apps");
+        if (nav is null)
+        {
+            return;
+        }
+
+        nav.Badge = Apps.SelectedCount.ToString();
+        nav.ShowBadge = Apps.SelectedCount > 0;
+    }
+
+    private void UpdateServersBadge(int count)
+    {
+        var nav = NavItems.FirstOrDefault(n => n.Key == "servers");
+        if (nav is null)
+        {
+            return;
+        }
+
+        nav.Badge = count.ToString();
+        nav.ShowBadge = count > 0;
     }
 
     [RelayCommand]
@@ -223,22 +299,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         Current = value.Page;
+        UiPreferences.LastPage = value.Key;
+        SaveUiPreferences();
+        _ = EnsureSelectedPageAsync();
+    }
 
-        if (value.Page is AppsViewModel apps)
+    [RelayCommand]
+    private void Navigate(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
         {
-            _ = apps.EnsureLoadedAsync();
+            return;
         }
-        else if (value.Page is ServersViewModel servers)
+
+        var target = NavItems.FirstOrDefault(n => string.Equals(n.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (target is not null)
         {
-            _ = servers.EnsureLoadedAsync();
-        }
-        else if (value.Page is SettingsViewModel settings)
-        {
-            _ = settings.EnsureLoadedAsync();
-        }
-        else if (value.Page is LogsViewModel logs)
-        {
-            _ = logs.RebuildAsync();
+            SelectedNav = target;
         }
     }
 
@@ -253,16 +330,46 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task RefreshSubscriptionAsync()
     {
-        var result = await _client.GetAsync<SubscriptionRefreshDto>(IpcCommands.RefreshSubscription);
-        if (result is { Ok: true })
+        if (IsRefreshingSubscription)
         {
-            ServiceStatusText = $"Подписка: {result.NodeCount} серверов";
-            await LoadStateAsync();
+            return;
         }
-        else
+
+        IsRefreshingSubscription = true;
+        Home.SetError(null);
+        try
         {
-            Home.SetError(_client.LastError);
+            var result = await _client.GetAsync<SubscriptionRefreshDto>(IpcCommands.RefreshSubscription);
+            if (result is { Ok: true })
+            {
+                ServiceStatusText = $"Подписка: {result.NodeCount} серверов";
+                await LoadStateAsync();
+                await PollAsync();
+            }
+            else
+            {
+                Home.SetError(_client.LastError ?? "Не удалось обновить подписку");
+            }
         }
+        finally
+        {
+            IsRefreshingSubscription = false;
+        }
+    }
+
+    /// <summary>Быстрое переключение сервера с главной страницы.</summary>
+    public async Task<bool> SelectNodeAsync(string tag)
+    {
+        var ok = await _client.ExecuteAsync(IpcCommands.SetSelectedNode, new { tag });
+        if (!ok)
+        {
+            Home.SetError(_client.LastError ?? "Не удалось выбрать сервер");
+            return false;
+        }
+
+        await LoadStateAsync();
+        await PollAsync();
+        return true;
     }
 
     private async Task LoadStateAsync()
@@ -275,8 +382,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _stateLoaded = true;
         Servers.ApplyNodes(state.Nodes, state.Settings.SelectedNode);
+        Home.ApplyNodes(state.Nodes, state.Settings.SelectedNode, state.Settings.SelectedApps.Count);
         Apps.Load(state.Settings);
         Settings.Load(state.Settings, state.Nodes.Count);
+        UpdateServersBadge(state.Nodes.Count);
+        UpdateAppsBadge();
     }
 
     /// <summary>Перечитать настройки после изменений на другом экране.</summary>

@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using VpnUs.App.ViewModels;
 
 namespace VpnUs.App.Views;
@@ -8,11 +10,44 @@ public partial class AppsView : UserControl
 {
     public AppsView() => InitializeComponent();
 
-    private void OnRowCheckClick(object sender, RoutedEventArgs e)
+    private void OnRowClick(object sender, MouseButtonEventArgs e)
     {
-        if (DataContext is AppsViewModel viewModel && viewModel.MarkDirtyCommand.CanExecute(null))
+        if (e.OriginalSource is not DependencyObject source ||
+            FindAncestor<Button>(source) is not null ||
+            FindAncestor<CheckBox>(source) is not null ||
+            FindAncestor<TextBox>(source) is not null)
         {
-            viewModel.MarkDirtyCommand.Execute(null);
+            return;
+        }
+
+        if (sender is FrameworkElement { DataContext: AppRowViewModel row })
+        {
+            row.IsSelected = !row.IsSelected;
+        }
+    }
+
+    private void OnSelectionMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { ContextMenu: { } menu } button)
+        {
+            menu.PlacementTarget = button;
+            menu.IsOpen = true;
+        }
+    }
+
+    private void OnOpenLocationClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: AppRowViewModel row } && DataContext is AppsViewModel viewModel)
+        {
+            viewModel.OpenFileLocationCommand.Execute(row);
+        }
+    }
+
+    private void OnCopyPathClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: AppRowViewModel row } && DataContext is AppsViewModel viewModel)
+        {
+            viewModel.CopyPathCommand.Execute(row);
         }
     }
 
@@ -38,5 +73,20 @@ public partial class AppsView : UserControl
             vm.AddDroppedFiles(files);
             e.Handled = true;
         }
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? element) where T : DependencyObject
+    {
+        while (element is not null)
+        {
+            if (element is T match)
+            {
+                return match;
+            }
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return null;
     }
 }

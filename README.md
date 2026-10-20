@@ -9,6 +9,8 @@
 
 ## Возможности
 
+- **Главная**: живой график скорости загрузки/отдачи, пиковые значения, время сессии и число
+  соединений; быстрое переключение серверов и обновление подписки без перехода на другие экраны.
 - **Per-app split tunneling**: выбранные приложения идут через VPN, остальные — напрямую
   (sing-box `process_name` / `process_path` / `process_path_regex` + `route.find_process`).
   3 режима: *только выбранные*, *все приложения*, *все, кроме выбранных*.
@@ -18,15 +20,19 @@
   (как в Happ), base64/plain тело, автообновление раз в N часов.
   Схемы: `vless` (reality/utls/tcp+vision/ws/grpc/http/h2/quic/httpupgrade), `vmess`, `trojan`,
   `ss` (SIP002 и legacy), `hysteria2`/`hy2`, `tuic`, `anytls`. Неподдерживаемые транспорты пропускаются.
-- **Серверы**: список с флагами/типом/адресом, выбор, Auto (urltest), «Test all» через Clash API.
+- **Серверы**: список с кодами стран, типом/адресом, выбор, Auto (urltest), «Test all» через Clash API,
+  сортировка по имени или задержке.
 - **Приложения**: сканирование ярлыков «Пуск», Uninstall-реестра, пакетов Store и запущенных процессов,
-  поиск/фильтры, «Добавить .exe», иконки.
+  поиск/фильтры, «Добавить .exe», иконки, выбор кликом по строке, массовые операции и скрытие
+  системных/UWP-приложений (включается отдельно).
 - **Игры напрямую**: `geosite-category-games` + игровые порты (27000-27100, 34715 и т.д.).
 - **Служба Windows**: sing-box работает от `LocalSystem`, UI общается с ним через named pipe
   с токеном и списком SID (`ipc.allow`). UI запускается без UAC.
 - **Обновления**: ядро sing-box + wintun — кнопкой; обновления приложения — проверка GitHub Releases
   и установка прямо из UI.
-- **Трей**, тёмная тема, Mica, логи с экспортом, `run at login`.
+- **Удобство**: трей с быстрыми действиями, тёмная тема, Mica, настройки по разделам с защитой
+  от потери изменений, логи с поиском/копированием/экспортом, `run at login`, сохранение размера окна
+  и последнего раздела, горячие клавиши `Ctrl+1…5`, `Ctrl+Shift+C`, `Ctrl+Shift+R`.
 
 ## Установка
 
@@ -62,10 +68,10 @@ dotnet test  tests\VpnUs.Core.Tests\VpnUs.Core.Tests.csproj
 
 ```powershell
 # портативная версия + установщик для x64
-powershell -File build\build-packages.ps1 -Version 1.0.0 -Runtimes win-x64
+powershell -File build\build-packages.ps1 -Version 1.1.1 -Runtimes win-x64
 
 # обе архитектуры
-powershell -File build\build-packages.ps1 -Version 1.0.0 -Runtimes win-x64,win-arm64
+powershell -File build\build-packages.ps1 -Version 1.1.1 -Runtimes win-x64,win-arm64
 ```
 
 Результат в `dist\`:
@@ -85,6 +91,7 @@ powershell -File build\build-packages.ps1 -Version 1.0.0 -Runtimes win-x64,win-a
 src/VpnUs.Core      — модели, парсер подписок, генератор config.json, Clash API, сканер приложений, IPC-контракты
 src/VpnUs.Service   — служба: supervisor sing-box, named pipe + токен, планировщик подписки, обновление ядра
 src/VpnUs.App       — WPF UI (MVVM, CommunityToolkit.Mvvm): Главная, Серверы, Приложения, Настройки, Логи, трей
+                      и кастомный график трафика (Controls/TrafficChart.cs)
 tests/              — xUnit: парсер, cookie+307, генератор конфига, ACL канала, smoke-тесты с реальным sing-box
 installer/          — Inno Setup
 build/              — скрипты сборки дистрибутивов
@@ -143,7 +150,7 @@ git tag v1.0.1; git push origin v1.0.1     # .github/workflows/release.yml со�
 
 ## Проверка качества
 
-`dotnet test` прогоняет 66 тестов, включая:
+`dotnet test` прогоняет 105 тестов, включая:
 - парсинг всех схем и пропуск мусора/невалидных UUID;
 - подписку с `307 + Set-Cookie` (поднимается локальный HTTP-сервер);
 - генерацию конфига во всех режимах и `sing-box check` **реальным бинарником**, если он установлен;

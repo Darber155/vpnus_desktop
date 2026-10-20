@@ -116,4 +116,34 @@ public class FlagHelperTests
     {
         Assert.Equal("", FlagHelper.Guess("\U0001F1E9\U0001F1EA Berlin"));
     }
+
+    [Theory]
+    [InlineData("Германия \U0001F1E9\U0001F1EA", "DE")]
+    [InlineData("\U0001F1EA\U0001F1EA Эстония", "EE")]
+    [InlineData("Amsterdam NL", "NL")]
+    [InlineData("DE-Frankfurt", "DE")]
+    [InlineData("Финляндия 01", "FI")]
+    public void CountryCode_ReturnsBadgeCode(string name, string expected)
+    {
+        Assert.Equal(expected, FlagHelper.CountryCode(name));
+    }
+
+    [Theory]
+    [InlineData("SuperFast-01")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void CountryCode_ReturnsEmpty_ForUnknown(string name)
+    {
+        Assert.Equal("", FlagHelper.CountryCode(name));
+    }
+
+    [Theory]
+    [InlineData("Германия \U0001F1E9\U0001F1EA", "Германия")]
+    [InlineData("\U0001F1EA\U0001F1EA Эстония", "Эстония")]
+    [InlineData("\U0001F1F3\U0001F1F1", "")]
+    [InlineData("⚡ Auto \U0001F1E9\U0001F1EA", "⚡ Auto")]
+    public void StripFlags_RemovesRegionalIndicators(string input, string expected)
+    {
+        Assert.Equal(expected, FlagHelper.StripFlags(input));
+    }
 }

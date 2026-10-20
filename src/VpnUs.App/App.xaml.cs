@@ -7,7 +7,10 @@ namespace VpnUs.App;
 
 public partial class App : Application
 {
+    private const string ShowWindowEventName = @"Local\VpnUs.ShowWindow";
     private Mutex? _mutex;
+    private EventWaitHandle? _showWindowEvent;
+    private RegisteredWaitHandle? _showWindowRegistration;
 
     public static App Instance => (App)Current;
 
@@ -26,10 +29,31 @@ public partial class App : Application
         _mutex = new Mutex(true, @"Local\VpnUs.Client.SingleInstance", out var createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("VpnUs уже запущен — окно можно открыть из трея.", "VpnUs", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                EventWaitHandle.OpenExisting(ShowWindowEventName).Set();
+            }
+            catch (Exception ex) when (ex is WaitHandleCannotBeOpenedException or UnauthorizedAccessException)
+            {
+            }
+
             Shutdown();
             return;
         }
+
+        _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowWindowEventName);
+        _showWindowRegistration = ThreadPool.RegisterWaitForSingleObject(
+            _showWindowEvent,
+            (_, timedOut) =>
+            {
+                if (!timedOut)
+                {
+                    Dispatcher.BeginInvoke(new Action(ShowMainWindow));
+                }
+            },
+            null,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
 
         VpnUsPaths.EnsureUserData();
 
@@ -67,7 +91,7 @@ public partial class App : Application
         var window = new MainWindow { DataContext = Shell };
         MainWindow = window;
 
-        Tray = new TrayIconManager(Shell, window);
+        Tray = new TrayIconManager(Shell);
         window.Show();
 
         var startHidden = e.Args.Contains("--tray", StringComparer.OrdinalIgnoreCase) ||
@@ -79,7 +103,39 @@ public partial class App : Application
             Tray.Notify("VpnUs запущен в трее");
         }
 
-        _ = Shell.InitializeAsync();
+        _ = InitializeShellAsync();
+    }
+
+    private async Task InitializeShellAsync()
+    {
+        try
+        {
+            await Shell.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            UiLog.Write("error", "Ошибка инициализации: " + ex);
+        }
+    }
+
+    public void ShowMainWindow()
+    {
+        if (MainWindow is not { } window)
+        {
+            return;
+        }
+
+        if (!window.IsVisible)
+        {
+            window.Show();
+        }
+
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Activate();
     }
 
     public void ToggleMainWindow()
@@ -112,6 +168,9 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Tray?.Dispose();
+        Shell?.Dispose();
+        _showWindowRegistration?.Unregister(null);
+        _showWindowEvent?.Dispose();
         _mutex?.Dispose();
         base.OnExit(e);
     }

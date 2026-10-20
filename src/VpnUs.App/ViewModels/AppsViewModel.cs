@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -80,6 +81,23 @@ public sealed partial class AppRowViewModel : ObservableObject
 
     public bool IsRunning => Entry.IsRunning;
 
+    public bool IsSystem
+    {
+        get
+        {
+            if (string.Equals(Entry.Source, "Store", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            return Entry.Path.StartsWith(Path.Combine(windows, "SystemApps"), StringComparison.OrdinalIgnoreCase)
+                   || Entry.Path.StartsWith(Path.Combine(windows, "System32"), StringComparison.OrdinalIgnoreCase)
+                   || Entry.Path.StartsWith(Path.Combine(windows, "SysWOW64"), StringComparison.OrdinalIgnoreCase)
+                   || Entry.Path.Contains(@"\WindowsApps\", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [ObservableProperty]
     private bool _isSelected;
 
@@ -126,6 +144,8 @@ public sealed partial class AppsViewModel : ObservableObject
     private AppSettings? _draft;
     private bool _loaded;
     private bool _scanRunning;
+    private bool _scanAttempted;
+    private bool _loading;
 
     public AppsViewModel(ServiceClient client, MainViewModel main)
     {
@@ -148,6 +168,9 @@ public sealed partial class AppsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _showOnlySelected;
+
+    [ObservableProperty]
+    private bool _showSystemApps;
 
     [ObservableProperty]
     private bool _isScanning;
@@ -174,16 +197,25 @@ public sealed partial class AppsViewModel : ObservableObject
 
     public ObservableCollection<ResourceOption> Resources { get; } = [];
 
+    public string SelectionSummary => SelectedCount == 0
+        ? $"Ничего не выбрано из {_all.Count}"
+        : $"Выбрано {SelectedCount} из {_all.Count}";
+
     public bool IsPerAppMode => SelectedMode?.Mode == RoutingMode.PerApp;
 
     public bool IsSelectiveMode => SelectedMode?.Mode == RoutingMode.Selective;
+
+    partial void OnSelectedCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(SelectionSummary));
+    }
 
     partial void OnSelectedModeChanged(ModeOption? value)
     {
         OnPropertyChanged(nameof(IsPerAppMode));
         OnPropertyChanged(nameof(IsSelectiveMode));
 
-        if (value is null)
+        if (value is null || _loading)
         {
             return;
         }
@@ -250,61 +282,110 @@ public sealed partial class AppsViewModel : ObservableObject
 
     partial void OnShowOnlySelectedChanged(bool value) => Rebuild();
 
-    public void Load(AppSettings settings)
+    partial void OnShowSystemAppsChanged(bool value) => Rebuild();
+
+    public void Load(AppSettings settings, bool force = false)
     {
-        _draft = settings;
-        _loaded = true;
-        SplitMode = settings.AppSplit;
-
-        if (Modes.Count == 0)
+        if (!force && Dirty)
         {
-            foreach (var routingMode in Enum.GetValues<RoutingMode>())
-            {
-                Modes.Add(new ModeOption(routingMode));
-            }
+            return;
         }
 
-        if (Resources.Count == 0)
+        _loading = true;
+        try
         {
-            foreach (var name in RoutingModeInfo.SelectiveRuleSets)
+            _draft = settings;
+            _loaded = true;
+            SplitMode = settings.AppSplit;
+
+            if (Modes.Count == 0)
             {
-                Resources.Add(new ResourceOption(name));
-            }
-        }
-
-        var enabledResources = settings.SelectiveRuleSets.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var resource in Resources)
-        {
-            resource.IsSelected = enabledResources.Contains(resource.Name);
-        }
-
-        var mode = Modes.FirstOrDefault(m => m.Mode == settings.Mode) ?? Modes[0];
-        SelectedMode = mode;
-        ModeWarning = mode.Mode == RoutingMode.PerApp
-            ? ""
-            : $"Сейчас режим «{mode.Title}»: список приложений не влияет на маршрутизацию. " +
-              "Выберите «Только выбранные приложения» и сохраните, чтобы VPN применялся только к отмеченным.";
-
-        foreach (var selected in settings.SelectedApps)
-        {
-            if (_all.All(a => !string.Equals(a.Entry.Path, selected.Path, StringComparison.OrdinalIgnoreCase)))
-            {
-                _all.Add(new AppRowViewModel(new AppEntry
+                foreach (var routingMode in Enum.GetValues<RoutingMode>())
                 {
-                    Name = selected.Name,
-                    Path = selected.Path,
-                    Source = "Вручную",
-                    Selected = true,
-                }));
+                    Modes.Add(new ModeOption(routingMode));
+                }
             }
+
+            if (Resources.Count == 0)
+            {
+                foreach (var name in RoutingModeInfo.SelectiveRuleSets)
+                {
+                    var option = new ResourceOption(name);
+                    option.PropertyChanged += OnResourceChanged;
+                    Resources.Add(option);
+                }
+            }
+
+            var enabledResources = settings.SelectiveRuleSets.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var resource in Resources)
+            {
+                resource.IsSelected = enabledResources.Contains(resource.Name);
+            }
+
+            var mode = Modes.FirstOrDefault(m => m.Mode == settings.Mode) ?? Modes[0];
+            SelectedMode = mode;
+            ModeWarning = mode.Mode == RoutingMode.PerApp
+                ? ""
+                : $"Сейчас режим «{mode.Title}»: список приложений не влияет на маршрутизацию. " +
+                  "Выберите «Только выбранные приложения» и сохраните, чтобы VPN применялся только к отмеченным.";
+
+            foreach (var selected in settings.SelectedApps)
+            {
+                if (_all.All(a => !string.Equals(a.Entry.Path, selected.Path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _all.Add(Attach(new AppRowViewModel(new AppEntry
+                    {
+                        Name = selected.Name,
+                        Path = selected.Path,
+                        Source = "Вручную",
+                        Selected = true,
+                    })));
+                }
+            }
+
+            SyncSelectionFromDraft();
+            Rebuild();
+            OnPropertyChanged(nameof(IsEmpty));
+
+            // Загрузка сохранённых настроек — это не пользовательское изменение.
+            Dirty = false;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private AppRowViewModel Attach(AppRowViewModel row)
+    {
+        row.PropertyChanged += OnRowChanged;
+        return row;
+    }
+
+    private void OnRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(AppRowViewModel.IsSelected))
+        {
+            return;
         }
 
-        SyncSelectionFromDraft();
-        Rebuild();
-        OnPropertyChanged(nameof(IsEmpty));
+        SelectedCount = _all.Count(a => a.IsSelected);
+        if (!_loading)
+        {
+            Dirty = true;
+            if (!IsScanning)
+            {
+                Status = $"Найдено: {_all.Count} · показано: {Apps.Count} · выбрано: {SelectedCount}";
+            }
+        }
+    }
 
-        // Загрузка сохранённых настроек — это не пользовательское изменение.
-        Dirty = false;
+    private void OnResourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ResourceOption.IsSelected) && !_loading)
+        {
+            Dirty = true;
+        }
     }
 
     public async Task EnsureLoadedAsync()
@@ -318,9 +399,14 @@ public sealed partial class AppsViewModel : ObservableObject
             }
         }
 
-        if (_all.Count <= 1)
+        if (!_scanAttempted)
         {
+            _scanAttempted = true;
             await ScanAsync();
+        }
+        else if (!IsScanning)
+        {
+            Status = $"Найдено: {_all.Count} · показано: {Apps.Count} · выбрано: {SelectedCount}";
         }
     }
 
@@ -360,6 +446,11 @@ public sealed partial class AppsViewModel : ObservableObject
                 continue;
             }
 
+            if (!ShowSystemApps && row.IsSystem && !row.IsSelected)
+            {
+                continue;
+            }
+
             if (SourceFilter != "Все" && !string.Equals(row.Source, SourceFilter, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -377,6 +468,12 @@ public sealed partial class AppsViewModel : ObservableObject
 
         OnPropertyChanged(nameof(VisibleCount));
         OnPropertyChanged(nameof(HasNoVisible));
+        OnPropertyChanged(nameof(SelectionSummary));
+
+        if (!IsScanning)
+        {
+            Status = $"Найдено: {_all.Count} · показано: {Apps.Count} · выбрано: {SelectedCount}";
+        }
     }
 
     [RelayCommand]
@@ -390,6 +487,8 @@ public sealed partial class AppsViewModel : ObservableObject
         _scanRunning = true;
         IsScanning = true;
         Status = "Сканирую установленные приложения...";
+        var wasDirty = Dirty;
+        _loading = true;
 
         try
         {
@@ -421,7 +520,7 @@ public sealed partial class AppsViewModel : ObservableObject
             _all.Clear();
             foreach (var entry in merged.Values.OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase))
             {
-                _all.Add(new AppRowViewModel(entry));
+                _all.Add(Attach(new AppRowViewModel(entry)));
             }
 
             if (_draft is not null)
@@ -436,12 +535,14 @@ public sealed partial class AppsViewModel : ObservableObject
             SelectedCount = _all.Count(a => a.IsSelected);
             Rebuild();
             OnPropertyChanged(nameof(IsEmpty));
-            Status = $"Найдено приложений: {_all.Count}, выбрано: {SelectedCount}";
+            Status = $"Найдено: {_all.Count} · показано: {VisibleCount} · выбрано: {SelectedCount}";
         }
         finally
         {
             IsScanning = false;
             _scanRunning = false;
+            _loading = false;
+            Dirty = wasDirty;
         }
     }
 
@@ -479,7 +580,7 @@ public sealed partial class AppsViewModel : ObservableObject
                 Selected = true,
             };
 
-            _all.Insert(0, new AppRowViewModel(entry));
+            _all.Insert(0, Attach(new AppRowViewModel(entry)));
         }
 
         SelectedCount = _all.Count(a => a.IsSelected);
@@ -487,6 +588,18 @@ public sealed partial class AppsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmpty));
         Dirty = true;
         Status = $"Добавлено вручную: выбрано {SelectedCount}";
+    }
+
+    [RelayCommand]
+    private void DeselectVisible()
+    {
+        foreach (var row in Apps)
+        {
+            row.IsSelected = false;
+        }
+
+        SelectedCount = _all.Count(a => a.IsSelected);
+        Dirty = true;
     }
 
     [RelayCommand]
@@ -524,7 +637,7 @@ public sealed partial class AppsViewModel : ObservableObject
             if (!existingPaths.Contains(running.Path))
             {
                 running.Selected = true;
-                _all.Insert(0, new AppRowViewModel(running));
+                _all.Insert(0, Attach(new AppRowViewModel(running)));
             }
         }
 
@@ -584,7 +697,7 @@ public sealed partial class AppsViewModel : ObservableObject
                 Selected = true,
             };
 
-            _all.Insert(0, new AppRowViewModel(entry));
+            _all.Insert(0, Attach(new AppRowViewModel(entry)));
             added++;
         }
 
@@ -608,6 +721,68 @@ public sealed partial class AppsViewModel : ObservableObject
 
         SelectedCount = 0;
         Dirty = true;
+    }
+
+    [RelayCommand]
+    private async Task RevertAsync()
+    {
+        var state = await _client.GetAsync<ClientStateDto>(IpcCommands.GetSettings);
+        if (state is null)
+        {
+            Status = _client.LastError ?? "Служба недоступна";
+            return;
+        }
+
+        Load(state.Settings, force: true);
+        Status = "Изменения отменены";
+    }
+
+    [RelayCommand]
+    private void OpenFileLocation(AppRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(row.Entry.Path))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{row.Entry.Path}\"") { UseShellExecute = true });
+            }
+            else
+            {
+                var folder = Path.GetDirectoryName(row.Entry.Path);
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                {
+                    Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            Status = "Не удалось открыть папку: " + ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyPath(AppRowViewModel? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(row.Entry.Path);
+            Status = "Путь скопирован";
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            Status = "Не удалось скопировать путь";
+        }
     }
 
     [RelayCommand]
@@ -652,13 +827,6 @@ public sealed partial class AppsViewModel : ObservableObject
         {
             Status = _client.LastError ?? "Не удалось применить настройки";
         }
-    }
-
-    [RelayCommand]
-    private void MarkDirty()
-    {
-        SelectedCount = _all.Count(a => a.IsSelected);
-        Dirty = true;
     }
 
     [RelayCommand]

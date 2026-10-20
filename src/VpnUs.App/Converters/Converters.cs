@@ -52,20 +52,20 @@ public sealed class DelayToBrushConverter : IValueConverter
     {
         if (value is not int delay || delay <= 0)
         {
-            return new SolidColorBrush(Color.FromRgb(0x8A, 0x90, 0xA0));
+            return new SolidColorBrush(Color.FromRgb(0x8C, 0x93, 0xA6));
         }
 
         if (delay < 150)
         {
-            return new SolidColorBrush(Color.FromRgb(0x3D, 0xDC, 0x97));
+            return new SolidColorBrush(Color.FromRgb(0x46, 0xE0, 0xA1));
         }
 
         if (delay < 400)
         {
-            return new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x20));
+            return new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0x54));
         }
 
-        return new SolidColorBrush(Color.FromRgb(0xFF, 0x5C, 0x6C));
+        return new SolidColorBrush(Color.FromRgb(0xFF, 0x64, 0x70));
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -77,9 +77,9 @@ public sealed class LogLevelToBrushConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         => (value as string)?.ToLowerInvariant() switch
         {
-            "error" or "fatal" => new SolidColorBrush(Color.FromRgb(0xFF, 0x5C, 0x6C)),
-            "warn" or "warning" => new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x20)),
-            "debug" or "trace" => new SolidColorBrush(Color.FromRgb(0x8A, 0x90, 0xA0)),
+            "error" or "fatal" => new SolidColorBrush(Color.FromRgb(0xFF, 0x64, 0x70)),
+            "warn" or "warning" => new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0x54)),
+            "debug" or "trace" => new SolidColorBrush(Color.FromRgb(0x8C, 0x93, 0xA6)),
             _ => new SolidColorBrush(Color.FromRgb(0xD5, 0xDA, 0xE6)),
         };
 

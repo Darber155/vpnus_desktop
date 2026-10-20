@@ -5,228 +5,468 @@
     <UserControl.Resources>
         <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
         <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-            <Setter Property="Margin" Value="0,0,0,5" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="SettingsScroll" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="Margin" Value="0,0,-6,0" />
+        </Style>
+        <Style x:Key="TabHeaderText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground"
+                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}, FallbackValue=#FFF4F6FB}" />
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,24,28,0">
+    <Grid Margin="30,26,30,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="Настройки и подписка" Style="{StaticResource PageTitle}" />
-            <TextBlock Text="{Binding NodesInfo}" Style="{StaticResource Caption}" Margin="0,0,0,14" />
-        </StackPanel>
-
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,-8,0">
-            <StackPanel Margin="0,0,8,16">
-
-                <!-- Подписка -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="Подписка Happ" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Text="URL подписки" Style="{StaticResource FieldLabel}" />
-                        <TextBox Text="{Binding SubscriptionUrl, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <CheckBox Content="Автообновление" IsChecked="{Binding SubscriptionAutoUpdate, Mode=TwoWay}"
-                                      VerticalAlignment="Center" />
-                            <TextBlock Text="каждые" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                       Margin="14,0,8,0" />
-                            <ComboBox Width="90" ItemsSource="{Binding UpdateHoursOptions}"
-                                      SelectedItem="{Binding SubscriptionUpdateHours, Mode=TwoWay}" />
-                            <TextBlock Text="часов" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                       Margin="8,0,0,0" />
-                            <Button Content="Обновить сейчас" Style="{StaticResource SecondaryButton}" Margin="18,0,0,0"
-                                    Command="{Binding RefreshSubscriptionCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Маршрутизация: режим и ресурсы выбираются на экране «Приложения» -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="Маршрутизация" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Text="Режим маршрутизации, список приложений и ресурсы через VPN настраиваются на экране «Приложения»."
-                                   Style="{StaticResource Caption}" Margin="0,0,0,12" />
-                        <CheckBox Content="Не гонять игры через VPN (geosite-category-games + игровые порты)"
-                                  IsChecked="{Binding BypassGames, Mode=TwoWay}" />
-                        <CheckBox Content="Блокировать рекламу (geosite-category-ads-all)"
-                                  IsChecked="{Binding BlockAds, Mode=TwoWay}" Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- DNS -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="DNS" Style="{StaticResource SectionTitle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,10,0">
-                                <TextBlock Text="Direct DNS (77.88.8.8)" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding DnsDirect, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                <TextBlock Text="Proxy DNS (1.1.1.1)" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding DnsProxy, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Стратегия" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding DnsStrategies}"
-                                          SelectedItem="{Binding DnsStrategy, Mode=TwoWay}" />
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- TUN и ядро -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="TUN и ядро sing-box" Style="{StaticResource SectionTitle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,10,0">
-                                <TextBlock Text="Стек TUN (mixed — рекомендуется)" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding TunStacks}" SelectedItem="{Binding TunStackName, Mode=TwoWay}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                <TextBlock Text="Имя интерфейса" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding TunInterface, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Margin="0,0,10,0">
-                                <TextBlock Text="MTU" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding TunMtu, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="3">
-                                <TextBlock Text="Clash API порт" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding ClashApiPort, UpdateSourceTrigger=PropertyChanged}" Width="110" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,10,0">
-                                <TextBlock Text="Локальный прокси-порт (0 — выключить)" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding LocalProxyPort, UpdateSourceTrigger=PropertyChanged}" Width="200" />
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Style="{StaticResource Caption}" VerticalAlignment="Bottom"
-                                       Margin="0,0,0,6"
-                                       Text="Через 127.0.0.1 этот порт служба скачивает rule-set'ы (обход блокировок GitHub) — при старте туннель не зависит от их доступности." />
-                        </Grid>
-
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Margin="0,0,10,0">
-                                <TextBlock Text="URL теста задержки" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding UrlTestUrl, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                <TextBlock Text="Интервал urltest" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding UrlTestInterval, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Уровень логов" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding LogLevels}" SelectedItem="{Binding LogLevel, Mode=TwoWay}" Width="120" />
-                            </StackPanel>
-                        </Grid>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                            <Button Content="Обновить ядро (sing-box + wintun)" Style="{StaticResource SecondaryButton}"
-                                    Command="{Binding UpdateCoreCommand}" />
-                            <Button Content="Просмотр config.json" Style="{StaticResource GhostButton}" Margin="10,0,0,0"
-                                    Command="{Binding PreviewConfigCommand}" />
-                            <Button Content="Проверить конфиг" Style="{StaticResource GhostButton}"
-                                    Command="{Binding ValidateConfigCommand}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding CoreInfo}" Style="{StaticResource Caption}" Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- Обновления приложения -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="Обновления приложения" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Text="{Binding Main.VersionText}" Style="{StaticResource Caption}" />
-                        <TextBlock Text="{Binding Main.UpdateStatus}" Style="{StaticResource Caption}"
-                                   Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                        <TextBlock Text="{Binding Main.UpdateProgress}" Style="{StaticResource Caption}"
-                                   Foreground="{StaticResource AccentBrush}" Margin="0,4,0,0" />
-
-                        <CheckBox Content="Проверять обновления при запуске (GitHub Releases)"
-                                  IsChecked="{Binding CheckUpdatesOnStart, Mode=TwoWay}" Margin="0,10,0,0" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Button Content="Проверить обновления" Style="{StaticResource SecondaryButton}"
-                                    Command="{Binding CheckUpdatesCommand}" />
-                            <Button Content="Скачать и установить" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
-                                    Command="{Binding ApplyUpdateCommand}"
-                                    Visibility="{Binding Main.UpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
-                            <Button Content="Страница релизов" Style="{StaticResource GhostButton}"
-                                    Command="{Binding OpenReleasesCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Служба -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Служба Windows и автозапуск" Style="{StaticResource SectionTitle}" />
-                        <TextBlock Text="{Binding ServiceState, StringFormat=Служба: {0}}" Style="{StaticResource Caption}" />
-                        <TextBlock Text="{Binding RunningServicePath, StringFormat=Запущена из: {0}}" Style="{StaticResource Caption}" FontSize="11" />
-                        <TextBlock Text="{Binding ServiceExe}" Style="{StaticResource Caption}" FontSize="11" />
-                        <TextBlock Text="UI не требует UAC: TUN поднимает служба от LocalSystem, общение — через named pipe с токеном."
-                                   Style="{StaticResource Caption}" Margin="0,6,0,0" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                            <Button Content="Установить / починить службу (UAC)" Style="{StaticResource SecondaryButton}"
-                                    Command="{Binding InstallServiceCommand}" />
-                            <Button Content="Удалить службу" Style="{StaticResource DangerButton}" Margin="10,0,0,0"
-                                    Command="{Binding UninstallServiceCommand}" />
-                            <Button Content="Проверить" Style="{StaticResource GhostButton}" Margin="10,0,0,0"
-                                    Command="{Binding CheckServiceCommand}" />
-                            <Button Content="Открыть папку данных" Style="{StaticResource GhostButton}"
-                                    Command="{Binding OpenDataFolderCommand}" />
-                        </StackPanel>
-
-                        <CheckBox Content="Автозапуск интерфейса при входе в Windows (в трей)"
-                                  IsChecked="{Binding LaunchAtLogin, Mode=TwoWay}" Margin="0,14,0,0" />
-                        <CheckBox Content="Запускать свёрнутым в трей"
-                                  IsChecked="{Binding StartMinimized, Mode=TwoWay}" Margin="0,8,0,0" />
-                        <CheckBox Content="Подключаться автоматически при старте службы"
-                                  IsChecked="{Binding AutoConnect, Mode=TwoWay}" Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
-
-        <Grid Grid.Row="2" Margin="0,12,0,16">
+        <!-- Заголовок -->
+        <Grid Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{Binding Message}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Сохранить настройки" Style="{StaticResource PrimaryButton}"
-                    Command="{Binding SaveCommand}" />
+            <StackPanel>
+                <TextBlock Text="Настройки" Style="{StaticResource PageTitle}" />
+                <TextBlock Text="{Binding NodesInfo}" Style="{StaticResource PageSubtitle}" />
+            </StackPanel>
+
+            <Border Grid.Column="1" VerticalAlignment="Center" Padding="11,5">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                        <Setter Property="Padding" Value="11,5" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ServiceStateKind}" Value="running">
+                                <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource SuccessSoftBorderBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ServiceStateKind}" Value="error">
+                                <Setter Property="Background" Value="{StaticResource DangerSoftBrush}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource DangerSoftBorderBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,7,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ServiceStateKind}" Value="running">
+                                        <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ServiceStateKind}" Value="connecting">
+                                        <Setter Property="Fill" Value="{StaticResource WarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ServiceStateKind}" Value="error">
+                                        <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding ServiceState, StringFormat=Служба: {0}}" FontSize="11.5" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
         </Grid>
+
+        <TabControl Grid.Row="1" Style="{StaticResource SettingsTabs}">
+            <!-- Подписка -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Подписка" Style="{StaticResource TabHeaderText}" />
+                </TabItem.Header>
+                <ScrollViewer Style="{StaticResource SettingsScroll}">
+                    <StackPanel Margin="0,0,6,16">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="Подписка Happ / v2rayNG" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="URL подписки" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding SubscriptionUrl, UpdateSourceTrigger=PropertyChanged}"
+                                         Tag="https://example.com/api/sub/..." AutomationProperties.Name="URL подписки" />
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Content="Автообновление" IsChecked="{Binding SubscriptionAutoUpdate, Mode=TwoWay}"
+                                              VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="раз в" Style="{StaticResource Caption}"
+                                               VerticalAlignment="Center" Margin="14,0,8,0" />
+                                    <ComboBox Grid.Column="2" Width="86" ItemsSource="{Binding UpdateHoursOptions}"
+                                              SelectedItem="{Binding SubscriptionUpdateHours, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="3" Text="ч" Style="{StaticResource Caption}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    <Button Grid.Column="6" Content="Обновить сейчас" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding RefreshSubscriptionCommand}"
+                                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE916;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                                   Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding SubscriptionUpdatedLabel}" Style="{StaticResource Caption}"
+                                                   Margin="7,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding NextUpdateLabel}" Style="{StaticResource Caption}"
+                                               TextAlignment="Right" Foreground="{StaticResource TextMutedBrush}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Padding="16,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE946;" FontFamily="{StaticResource IconFont}" FontSize="18"
+                                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Top" Margin="0,1,12,0" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Поддерживаемые форматы" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,3,0,0"
+                                               Text="VLESS (reality, ws, grpc, h2, quic), VMess, Trojan, Shadowsocks, Hysteria2, TUIC и AnyTLS. Неподдерживаемые транспорты пропускаются при обновлении." />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Padding="16,14" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Быстрая диагностика" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+                                <TextBlock Style="{StaticResource Caption}" FontSize="11.5" Margin="0,0,0,10"
+                                           Text="VPN не подключается или нет интернета? Проверьте логи, конфиг и состояние службы." />
+                                <WrapPanel>
+                                    <Button Content="Открыть логи" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding OpenLogsCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Проверить конфиг" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding ValidateConfigCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Перезапустить туннель" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding RestartTunnelCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Открыть папку данных" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Сеть -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Сеть" Style="{StaticResource TabHeaderText}" />
+                </TabItem.Header>
+                <ScrollViewer Style="{StaticResource SettingsScroll}">
+                    <StackPanel Margin="0,0,6,16">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Маршрутизация" Style="{StaticResource SectionTitle}" />
+                                    <Button Grid.Column="1" Content="Открыть приложения" Style="{StaticResource LinkButton}"
+                                            Command="{Binding OpenAppsCommand}" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,12"
+                                           Text="Режим маршрутизации, список приложений и ресурсы через VPN настраиваются на экране «Приложения»." />
+                                <CheckBox Content="Не гонять игры через VPN (geosite-category-games + игровые порты)"
+                                          IsChecked="{Binding BypassGames, Mode=TwoWay}" />
+                                <CheckBox Content="Блокировать рекламу (geosite-category-ads-all)"
+                                          IsChecked="{Binding BlockAds, Mode=TwoWay}" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="DNS" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Direct DNS" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding DnsDirect, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <TextBlock Text="Proxy DNS" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding DnsProxy, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Стратегия" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding DnsStrategies}"
+                                                  SelectedItem="{Binding DnsStrategy, Mode=TwoWay}" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Style="{StaticResource Caption}" FontSize="11.5" Margin="0,10,0,0"
+                                           Text="Direct DNS используется для доменов вне VPN, Proxy DNS — для запросов через туннель." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Ядро -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Ядро" Style="{StaticResource TabHeaderText}" />
+                </TabItem.Header>
+                <ScrollViewer Style="{StaticResource SettingsScroll}">
+                    <StackPanel Margin="0,0,6,16">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="TUN и подключение" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="Стек TUN" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding TunStacks}" SelectedItem="{Binding TunStackName, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <TextBlock Text="Имя интерфейса" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding TunInterface, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                                        <TextBlock Text="MTU" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding TunMtu, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3">
+                                        <TextBlock Text="Clash API порт" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding ClashApiPort, UpdateSourceTrigger=PropertyChanged}" Width="105" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,14,0">
+                                        <TextBlock Text="Локальный прокси-порт (0 — выключить)" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding LocalProxyPort, UpdateSourceTrigger=PropertyChanged}" Width="205" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Style="{StaticResource Caption}" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,6" FontSize="11.5"
+                                               Text="Через 127.0.0.1 этот порт служба скачивает rule-set'ы (обход блокировок GitHub) — при старте туннель не зависит от их доступности." />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="Тесты и логи" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,10,0">
+                                        <TextBlock Text="URL теста задержки" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding UrlTestUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <TextBlock Text="Интервал urltest" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding UrlTestInterval, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Уровень логов" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding LogLevels}" SelectedItem="{Binding LogLevel, Mode=TwoWay}"
+                                                  Width="110" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Ядро sing-box" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="{Binding CoreInfo}" Style="{StaticResource Caption}" Margin="0,0,0,10" />
+                                <WrapPanel>
+                                    <Button Content="Обновить ядро" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding UpdateCoreCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Просмотр config.json" Style="{StaticResource GhostButton}"
+                                            Command="{Binding PreviewConfigCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Проверить конфиг" Style="{StaticResource GhostButton}"
+                                            Command="{Binding ValidateConfigCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Перезапустить туннель" Style="{StaticResource GhostButton}"
+                                            Command="{Binding RestartTunnelCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Обновления -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Обновления" Style="{StaticResource TabHeaderText}" />
+                </TabItem.Header>
+                <ScrollViewer Style="{StaticResource SettingsScroll}">
+                    <StackPanel Margin="0,0,6,16">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Обновления приложения" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="11" Background="{StaticResource AccentSoftBrush}"
+                                            VerticalAlignment="Top">
+                                        <TextBlock Text="&#xE895;" FontFamily="{StaticResource IconFont}" FontSize="17"
+                                                   Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="{Binding Main.VersionText}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Main.UpdateStatus}" Style="{StaticResource Caption}"
+                                                   TextWrapping="Wrap" Margin="0,3,0,0"
+                                                   Visibility="{Binding Main.UpdateStatus, Converter={StaticResource NullToVisibility}}" />
+                                        <TextBlock Text="{Binding Main.UpdateProgress}" Style="{StaticResource Caption}"
+                                                   Foreground="{StaticResource AccentBrush}" Margin="0,3,0,0"
+                                                   Visibility="{Binding Main.UpdateProgress, Converter={StaticResource NullToVisibility}}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <CheckBox Content="Проверять обновления при запуске (GitHub Releases)"
+                                          IsChecked="{Binding CheckUpdatesOnStart, Mode=TwoWay}" Margin="0,14,0,0" />
+
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Content="Проверить обновления" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CheckUpdatesCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Скачать и установить" Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding ApplyUpdateCommand}" Margin="0,0,8,8"
+                                            Visibility="{Binding Main.UpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
+                                    <Button Content="Страница релизов" Style="{StaticResource GhostButton}"
+                                            Command="{Binding OpenReleasesCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+
+                                <TextBlock Style="{StaticResource Caption}" FontSize="11.5" Margin="0,4,0,0"
+                                           Text="В установленной версии обновление ставится через VpnUs-Setup (тихий режим, UAC). Портативная версия распаковывается после выхода приложения." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Служба -->
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Служба" Style="{StaticResource TabHeaderText}" />
+                </TabItem.Header>
+                <ScrollViewer Style="{StaticResource SettingsScroll}">
+                    <StackPanel Margin="0,0,6,16">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="Служба Windows" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding RunningServicePath, StringFormat=Запущена из: {0}}"
+                                                   Style="{StaticResource Caption}" FontSize="11.5"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                        <TextBlock Text="{Binding ServiceExe, StringFormat=Файл службы: {0}}"
+                                                   Style="{StaticResource Caption}" FontSize="11"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="UI работает без UAC" FontSize="10.5"
+                                               Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Top" />
+                                </Grid>
+
+                                <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" FontSize="11.5"
+                                           Text="TUN поднимает служба от LocalSystem, интерфейс общается с ней через named pipe с токеном и списком разрешённых SID." />
+
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Content="Установить / починить (UAC)" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding InstallServiceCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Удалить службу" Style="{StaticResource DangerButton}"
+                                            Command="{Binding UninstallServiceCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Проверить" Style="{StaticResource GhostButton}"
+                                            Command="{Binding CheckServiceCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Открыть папку данных" Style="{StaticResource GhostButton}"
+                                            Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8" />
+                                    <Button Content="Логи" Style="{StaticResource GhostButton}"
+                                            Command="{Binding OpenLogsCommand}" Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Запуск и автоподключение" Style="{StaticResource SectionTitle}" />
+                                <CheckBox Content="Автозапуск интерфейса при входе в Windows (в трей)"
+                                          IsChecked="{Binding LaunchAtLogin, Mode=TwoWay}" />
+                                <CheckBox Content="Запускать свёрнутым в трей"
+                                          IsChecked="{Binding StartMinimized, Mode=TwoWay}" Margin="0,10,0,0" />
+                                <CheckBox Content="Подключаться автоматически при старте службы"
+                                          IsChecked="{Binding AutoConnect, Mode=TwoWay}" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- Панель сохранения -->
+        <Border Grid.Row="2" Background="{StaticResource BgRaisedBrush}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0" Padding="0,12,0,14" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Pill}" Padding="8,3" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningSoftBorderBrush}"
+                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Есть несохранённые изменения" FontSize="11" Foreground="{StaticResource WarningBrush}" />
+                </Border>
+
+                <TextBlock Grid.Column="1" Text="{Binding FooterHint}" Style="{StaticResource Caption}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="Отменить" Style="{StaticResource GhostButton}" Margin="0,0,8,0"
+                            Command="{Binding RevertCommand}"
+                            Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="Сохранить настройки" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

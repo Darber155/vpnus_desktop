@@ -3,10 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:VpnUs.App.ViewModels"
         xmlns:views="clr-namespace:VpnUs.App.Views"
-        Title="VpnUs" Width="1180" Height="840" MinWidth="980" MinHeight="640"
+        Title="{Binding Home.WindowTitle}" Width="1200" Height="860" MinWidth="1040" MinHeight="680"
         Icon="Assets/icon.png"
         WindowStartupLocation="CenterScreen" UseLayoutRounding="True"
-        TextOptions.TextFormattingMode="Ideal">
+        TextOptions.TextFormattingMode="Ideal"
+        Background="{StaticResource BgBrush}">
+    <Window.InputBindings>
+        <KeyBinding Key="D1" Modifiers="Ctrl" Command="{Binding NavigateCommand}" CommandParameter="home" />
+        <KeyBinding Key="D2" Modifiers="Ctrl" Command="{Binding NavigateCommand}" CommandParameter="servers" />
+        <KeyBinding Key="D3" Modifiers="Ctrl" Command="{Binding NavigateCommand}" CommandParameter="apps" />
+        <KeyBinding Key="D4" Modifiers="Ctrl" Command="{Binding NavigateCommand}" CommandParameter="settings" />
+        <KeyBinding Key="D5" Modifiers="Ctrl" Command="{Binding NavigateCommand}" CommandParameter="logs" />
+        <KeyBinding Key="C" Modifiers="Ctrl+Shift" Command="{Binding Home.ToggleCommand}" />
+        <KeyBinding Key="R" Modifiers="Ctrl+Shift" Command="{Binding Home.RefreshSubscriptionCommand}" />
+    </Window.InputBindings>
+
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:HomeViewModel}">
             <views:HomeView />
@@ -25,51 +36,77 @@
         </DataTemplate>
     </Window.Resources>
 
-    <Grid Background="#E60B0C10">
+    <Grid Background="{StaticResource AppBackgroundBrush}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="232" />
+            <ColumnDefinition Width="250" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="#6614161C" BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,1,0">
-            <Grid Margin="16,20,16,16">
+        <!-- Боковая панель -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <Grid Margin="18,22,18,18">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" Margin="6,0,0,22">
-                    <Image Source="Assets/icon.png" Width="34" Height="34"
-                           RenderOptions.BitmapScalingMode="HighQuality" />
-                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="VpnUs" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="sing-box · per-app" Style="{StaticResource Caption}" FontSize="11.5" />
+                <Grid Margin="6,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="38" Height="38" CornerRadius="12" Background="{StaticResource AccentSoftBrush}"
+                            BorderBrush="{StaticResource AccentSoftBorderBrush}" BorderThickness="1">
+                        <Image Source="Assets/icon.png" Width="30" Height="30"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="VpnUs" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="VPN · sing-box" Style="{StaticResource Caption}" FontSize="11" />
                     </StackPanel>
-                </StackPanel>
+                </Grid>
 
-                <ListBox Grid.Row="1" Style="{StaticResource NavList}"
+                <TextBlock Grid.Row="1" Text="НАВИГАЦИЯ" Style="{StaticResource Eyebrow}" Margin="11,26,0,8" />
+
+                <ListBox Grid.Row="2" Style="{StaticResource NavList}"
                          ItemsSource="{Binding NavItems}"
-                         SelectedItem="{Binding SelectedNav, Mode=TwoWay}">
+                         SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
+                         AutomationProperties.Name="Навигация">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource IconText}" />
-                                <TextBlock Text="{Binding Title}" Margin="12,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource IconText}" FontSize="15"
+                                           HorizontalAlignment="Left" />
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="10,0,0,0"
+                                           VerticalAlignment="Center" FontSize="13.5" FontWeight="SemiBold" />
+                                <Border Grid.Column="2" CornerRadius="999" Padding="7,1" Margin="6,0,0,0"
+                                        Background="{StaticResource SurfaceHoverBrush}" VerticalAlignment="Center"
+                                        Visibility="{Binding ShowBadge, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="{Binding Badge}" FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </Border>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Margin="0,14,0,0">
-                    <!-- Быстрое подключение из боковой панели -->
+                <StackPanel Grid.Row="3">
+                    <!-- Быстрое подключение -->
                     <Button Command="{Binding Home.ToggleCommand}" HorizontalContentAlignment="Stretch"
+                            Padding="13,11"
                             AutomationProperties.Name="{Binding Home.ConnectButtonText}"
                             ToolTip="{Binding Home.ConnectButtonHint}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
-                                <Setter Property="Padding" Value="12,10" />
+                                <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Home.StateKind}" Value="connected">
                                         <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
@@ -90,41 +127,81 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Ellipse Width="9" Height="9" VerticalAlignment="Center">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="connected">
-                                                <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="connecting">
-                                                <Setter Property="Fill" Value="{StaticResource WarningBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Home.StateKind}" Value="error">
-                                                <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                <TextBlock Text="{Binding Home.StatusLabel}" FontSize="13" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding Home.DownSpeed, StringFormat=↓ {0}}" Style="{StaticResource Caption}"
-                                           FontSize="11" />
+
+                            <Border Width="34" Height="34" CornerRadius="10" Background="#14FFFFFF">
+                                <TextBlock Text="&#xE7E8;" FontFamily="{StaticResource IconFont}" FontSize="15"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Home.StateKind}" Value="connected">
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Home.StateKind}" Value="connecting">
+                                                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Home.StateKind}" Value="error">
+                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Home.StatusLabel}" FontSize="12.5" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Home.ServerName}" Style="{StaticResource Caption}" FontSize="10.5"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <TextBlock Text="{Binding Home.DownSpeed, StringFormat=↓ {0}}" FontSize="10.5"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding Home.UpSpeed, StringFormat=↑ {0}}" FontSize="10.5"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource TextSubtleBrush}" />
                             </StackPanel>
                         </Grid>
                     </Button>
 
-                    <TextBlock Text="{Binding ServiceStatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                               Margin="6,12,6,0" FontSize="11.5" />
-                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Caption}" FontSize="10.5"
-                               Margin="6,4,6,0" Opacity="0.7" />
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="2,14,2,12" />
+
+                    <Grid Margin="4,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource TextSubtleBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ServiceAvailable}" Value="True">
+                                            <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Grid.Column="1" Text="{Binding ServiceStatusText}" Style="{StaticResource Caption}"
+                                   FontSize="11" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+                    </Grid>
+
+                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Caption}" FontSize="10"
+                               Margin="4,5,4,0" Opacity="0.65" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <ContentControl Grid.Column="1" Content="{Binding Current}" />
+        <!-- Контент -->
+        <ContentControl x:Name="PageHost" Grid.Column="1" Content="{Binding Current}">
+            <ContentControl.RenderTransform>
+                <TranslateTransform x:Name="PageShift" Y="0" />
+            </ContentControl.RenderTransform>
+        </ContentControl>
     </Grid>
 </Window>

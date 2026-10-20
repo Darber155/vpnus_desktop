@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Windows;
 using System.Windows.Controls;
 using VpnUs.App.ViewModels;
 
@@ -6,22 +7,37 @@ namespace VpnUs.App.Views;
 
 public partial class LogsView : UserControl
 {
+    private LogsViewModel? _subscribed;
+
     public LogsView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        Loaded += (_, _) => Attach(DataContext as LogsViewModel);
+        Unloaded += (_, _) => Attach(null);
     }
 
-    private void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (e.OldValue is LogsViewModel oldViewModel)
+        Attach(e.NewValue as LogsViewModel);
+    }
+
+    private void Attach(LogsViewModel? viewModel)
+    {
+        if (ReferenceEquals(_subscribed, viewModel))
         {
-            oldViewModel.Lines.CollectionChanged -= OnLinesChanged;
+            return;
         }
 
-        if (e.NewValue is LogsViewModel newViewModel)
+        if (_subscribed is not null)
         {
-            newViewModel.Lines.CollectionChanged += OnLinesChanged;
+            _subscribed.Lines.CollectionChanged -= OnLinesChanged;
+        }
+
+        _subscribed = viewModel;
+        if (_subscribed is not null)
+        {
+            _subscribed.Lines.CollectionChanged += OnLinesChanged;
         }
     }
 

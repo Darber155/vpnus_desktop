@@ -12,25 +12,32 @@ public sealed class TrayIconManager : IDisposable
 {
     private readonly NotifyIcon _notifyIcon;
     private readonly ToolStripMenuItem _toggleItem;
+    private readonly ToolStripMenuItem _statusItem;
+    private readonly ToolStripMenuItem _serverItem;
     private readonly MainViewModel _viewModel;
-    private readonly Window _window;
     private readonly Icon _icon;
     private bool _disposed;
 
-    public TrayIconManager(MainViewModel viewModel, Window window)
+    public TrayIconManager(MainViewModel viewModel)
     {
         _viewModel = viewModel;
-        _window = window;
         _icon = CreateIcon();
 
+        _statusItem = new ToolStripMenuItem("VpnUs · отключено") { Enabled = false };
         _toggleItem = new ToolStripMenuItem("Подключить");
         _toggleItem.Click += async (_, _) => await _viewModel.Home.ToggleConnectionAsync();
+        _serverItem = new ToolStripMenuItem("Сервер: —");
+        _serverItem.Click += (_, _) => OpenPage(_viewModel.Servers);
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Открыть VpnUs", null, (_, _) => App.Instance.ToggleMainWindow());
+        var menu = new ContextMenuStrip { ShowImageMargin = false, Font = new Font("Segoe UI", 9F) };
+        menu.Items.Add(_statusItem);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Открыть VpnUs", null, (_, _) => App.Instance.ShowMainWindow());
         menu.Items.Add(_toggleItem);
+        menu.Items.Add(_serverItem);
+        menu.Items.Add("Приложения", null, (_, _) => OpenPage(_viewModel.Apps));
         menu.Items.Add("Обновить подписку", null, async (_, _) => await _viewModel.RefreshSubscriptionAsync());
+        menu.Items.Add("Логи", null, (_, _) => OpenPage(_viewModel.Logs));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => App.Instance.ExitApp());
 
@@ -45,13 +52,21 @@ public sealed class TrayIconManager : IDisposable
         _notifyIcon.DoubleClick += (_, _) => App.Instance.ToggleMainWindow();
         _viewModel.Home.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(HomeViewModel.IsConnected) or nameof(HomeViewModel.StatusLabel))
+            if (e.PropertyName is nameof(HomeViewModel.IsConnected)
+                or nameof(HomeViewModel.StatusLabel)
+                or nameof(HomeViewModel.ServerName))
             {
                 UpdateMenu();
             }
         };
 
         UpdateMenu();
+    }
+
+    private void OpenPage(object page)
+    {
+        App.Instance.ShowMainWindow();
+        _viewModel.NavigateTo(page);
     }
 
     public void Notify(string message)
@@ -70,13 +85,19 @@ public sealed class TrayIconManager : IDisposable
     private void UpdateMenu()
     {
         var connected = _viewModel.Home.IsConnected;
+        var server = string.IsNullOrWhiteSpace(_viewModel.Home.ServerName) ? "—" : _viewModel.Home.ServerName;
+
+        _statusItem.Text = connected ? "VpnUs · подключено" : "VpnUs · отключено";
         _toggleItem.Text = connected ? "Отключить" : "Подключить";
+        _serverItem.Text = "Сервер: " + Truncate(server, 40);
+
         _notifyIcon.Text = connected
-            ? Truncate("VpnUs: подключено — " + _viewModel.Home.ServerName)
+            ? Truncate($"VpnUs: подключено — {server}", 120)
             : "VpnUs: отключено";
     }
 
-    private static string Truncate(string text) => text.Length <= 63 ? text : text[..60] + "...";
+    private static string Truncate(string text, int max)
+        => text.Length <= max ? text : text[..(max - 3)] + "...";
 
     private static Icon CreateIcon()
     {
@@ -114,8 +135,8 @@ public sealed class TrayIconManager : IDisposable
 
         using var brush = new LinearGradientBrush(
             new Rectangle(0, 0, 32, 32),
-            Color.FromArgb(91, 140, 255),
-            Color.FromArgb(124, 92, 255),
+            Color.FromArgb(107, 140, 255),
+            Color.FromArgb(154, 107, 255),
             45f);
 
         graphics.FillEllipse(brush, 1, 1, 30, 30);

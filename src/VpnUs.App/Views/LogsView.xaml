@@ -4,79 +4,135 @@
              xmlns:conv="clr-namespace:VpnUs.App.Converters">
     <UserControl.Resources>
         <conv:LogLevelToBrushConverter x:Key="LevelBrush" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
 
         <Style x:Key="LogRow" TargetType="ListBoxItem">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border Padding="6,2" Background="Transparent">
+                        <Border x:Name="Root" Padding="7,3" Background="Transparent" CornerRadius="5">
                             <ContentPresenter />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#0AFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,24,28,16">
+    <Grid Margin="30,26,30,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="Логи" Style="{StaticResource PageTitle}" />
-            <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,14" />
-        </StackPanel>
-
-        <Grid Grid.Row="1" Margin="0,0,0,12">
+        <Grid>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Логи" Style="{StaticResource PageTitle}" />
+                <TextBlock Text="{Binding Status}" Style="{StaticResource PageSubtitle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Копировать" Style="{StaticResource GhostButton}" Command="{Binding CopyAllCommand}"
+                        ToolTip="Скопировать видимые строки в буфер обмена" Margin="0,0,4,0" />
+                <Button Content="Экспорт" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"
+                        Command="{Binding ExportCommand}" />
+                <Button Content="Очистить" Style="{StaticResource GhostButton}" Command="{Binding ClearCommand}"
+                        Margin="4,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,14,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="340" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <ComboBox Width="130" ItemsSource="{Binding Levels}" SelectedItem="{Binding LevelFilter, Mode=TwoWay}" />
-            <CheckBox Grid.Column="1" Content="Автопрокрутка" Margin="14,0,0,0"
+            <Grid>
+                <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Padding="34,8,30,8"
+                         Tag="Поиск по тексту лога" AutomationProperties.Name="Поиск по логам" />
+                <TextBlock Text="&#xE721;" Style="{StaticResource IconText}" FontSize="12" Margin="12,0,0,0"
+                           IsHitTestVisible="False" />
+                <Button Command="{Binding ClearSearchCommand}" Style="{StaticResource GhostButton}"
+                        Padding="0" Width="22" Height="22" HorizontalAlignment="Right" Margin="0,0,5,0"
+                        ToolTip="Очистить поиск" AutomationProperties.Name="Очистить поиск"
+                        Visibility="{Binding Search, Converter={StaticResource NullToVisibility}}">
+                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+            </Grid>
+
+            <ComboBox Grid.Column="1" Width="118" Margin="10,0,0,0" ItemsSource="{Binding Levels}"
+                      SelectedItem="{Binding LevelFilter, Mode=TwoWay}" AutomationProperties.Name="Уровень логов" />
+
+            <CheckBox Grid.Column="2" Content="Автопрокрутка" Margin="14,0,0,0"
                       IsChecked="{Binding AutoScroll, Mode=TwoWay}" VerticalAlignment="Center" />
 
-            <StackPanel Grid.Column="3" Orientation="Horizontal">
-                <Button Content="Пауза" Style="{StaticResource GhostButton}" Command="{Binding TogglePauseCommand}" />
-                <Button Content="Очистить" Style="{StaticResource GhostButton}" Command="{Binding ClearCommand}" />
-                <Button Content="Экспорт в файл" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
-                        Command="{Binding ExportCommand}" />
-            </StackPanel>
+            <Button Grid.Column="3" Content="{Binding PauseLabel}" Style="{StaticResource GhostButton}"
+                    Command="{Binding TogglePauseCommand}" MinWidth="82" Margin="12,0,0,0" />
+
+            <Border Grid.Column="5" Style="{StaticResource Pill}" Padding="10,4" VerticalAlignment="Center"
+                    Visibility="{Binding Paused, Converter={StaticResource BoolToVisibility}}"
+                    Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningSoftBorderBrush}">
+                <TextBlock Text="Обновление приостановлено" FontSize="11" Foreground="{StaticResource WarningBrush}" />
+            </Border>
         </Grid>
 
         <Border Grid.Row="2" Style="{StaticResource Card}" Padding="8">
-            <ListBox x:Name="LogList" ItemsSource="{Binding Lines}" ItemContainerStyle="{StaticResource LogRow}"
-                     Background="Transparent" BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     VirtualizingPanel.IsVirtualizing="True"
-                     VirtualizingPanel.VirtualizationMode="Recycling">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Time}" FontFamily="Cascadia Mono, Consolas, monospace"
-                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Level}" Margin="10,0,10,0"
-                                       FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
-                                       Foreground="{Binding Level, Converter={StaticResource LevelBrush}}"
-                                       MinWidth="46" />
-                            <TextBlock Grid.Column="2" Text="{Binding Message}"
-                                       FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
-                                       TextWrapping="Wrap" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <Grid>
+                <ListBox x:Name="LogList" ItemsSource="{Binding Lines}" ItemContainerStyle="{StaticResource LogRow}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         AutomationProperties.Name="Строки логов">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Time}" FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11.5" Foreground="{StaticResource TextSubtleBrush}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Level}" Margin="10,0,10,0"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                           Foreground="{Binding Level, Converter={StaticResource LevelBrush}}"
+                                           MinWidth="42" />
+                                <TextBlock Grid.Column="2" Text="{Binding Message}"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                            Visibility="{Binding HasLines, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                    <TextBlock Text="&#xE9D9;" FontFamily="{StaticResource IconFont}" FontSize="26"
+                               Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Логов пока нет" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,10,0,0" />
+                    <TextBlock Text="Подключитесь к VPN или измените фильтр."
+                               Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

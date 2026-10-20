@@ -85,12 +85,34 @@ public static class FlagHelper
             }
         }
 
+        var code = CountryCode(text);
+        return code.Length == 0 ? "" : ToFlag(code);
+    }
+
+    /// <summary>
+    /// Двухбуквенный код страны для компактного бейджа. Windows не рисует флаги-эмодзи
+    /// (показывает «DE» буквами), поэтому в интерфейсе используется текстовый код.
+    /// </summary>
+    public static string CountryCode(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "";
+        }
+
+        var text = name.Trim();
+
+        if (TryReadFlag(text, out var flagCode))
+        {
+            return flagCode;
+        }
+
         var normal = text.ToLowerInvariant();
         foreach (var (needle, code) in CountryHints)
         {
             if (normal.Contains(needle, StringComparison.Ordinal))
             {
-                return ToFlag(code);
+                return code;
             }
         }
 
@@ -98,11 +120,66 @@ public static class FlagHelper
         {
             if (token.Length == 2 && ValidCodes.Contains(token))
             {
-                return ToFlag(token.ToUpperInvariant());
+                return token.ToUpperInvariant();
             }
         }
 
         return "";
+    }
+
+    /// <summary>Убирает из названия сервера флаги-эмодзи (региональные индикаторы), чтобы не было «de» в тексте.</summary>
+    public static string StripFlags(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text ?? "";
+        }
+
+        var sb = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                var cp = char.ConvertToUtf32(text[i], text[i + 1]);
+                if (cp is >= 0x1F1E6 and <= 0x1F1FF)
+                {
+                    i++;
+                    continue;
+                }
+
+                sb.Append(text[i]).Append(text[i + 1]);
+                i++;
+                continue;
+            }
+
+            sb.Append(text[i]);
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    private static bool TryReadFlag(string text, out string code)
+    {
+        code = "";
+        for (var i = 0; i < text.Length - 1; i++)
+        {
+            if (text[i] != '\uD83C' || text[i + 1] is < '\uDDE6' or > '\uDDFF')
+            {
+                continue;
+            }
+
+            if (i + 3 >= text.Length || text[i + 2] != '\uD83C' || text[i + 3] is < '\uDDE6' or > '\uDDFF')
+            {
+                continue;
+            }
+
+            code = string.Concat(
+                (char)('A' + (text[i + 1] - '\uDDE6')),
+                (char)('A' + (text[i + 3] - '\uDDE6')));
+            return true;
+        }
+
+        return false;
     }
 
     public static string ToFlag(string twoLetterCode)

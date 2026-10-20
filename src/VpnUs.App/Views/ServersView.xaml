@@ -10,20 +10,23 @@
 
         <Style x:Key="ServerRow" TargetType="ListBoxItem">
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,0,7" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Root" CornerRadius="12" Padding="12,10" Margin="0,0,0,8"
+                        <Border x:Name="Root" CornerRadius="12" Padding="13,10"
                                 Background="{StaticResource SurfaceBrush}"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentSoftBorderBrush}" />
                                 <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceAltBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -33,121 +36,186 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,24,28,0">
+    <Grid Margin="30,26,30,0">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,16">
-            <TextBlock Text="Серверы" Style="{StaticResource PageTitle}" />
-            <TextBlock Text="{Binding SelectedName, StringFormat=Выбран: {0}}" Style="{StaticResource Caption}" />
-        </StackPanel>
-
-        <Grid Grid.Row="1" Margin="0,0,0,14">
+        <!-- Заголовок -->
+        <Grid Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="360" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Серверы" Style="{StaticResource PageTitle}" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Выбран:" Style="{StaticResource PageSubtitle}" />
+                    <TextBlock Text="{Binding SelectedName}" Style="{StaticResource PageSubtitle}"
+                               Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" Margin="5,0,0,0" />
+                    <TextBlock Text="{Binding SelectedEndpoint, StringFormat=· {0}}" Style="{StaticResource PageSubtitle}"
+                               Margin="8,0,0,0" TextTrimming="CharacterEllipsis" MaxWidth="440" TextWrapping="NoWrap" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Style="{StaticResource Pill}" Margin="0,0,10,0" Padding="10,5">
+                    <TextBlock Text="{Binding CountLabel}" FontSize="11.5" FontWeight="SemiBold" />
+                </Border>
+                <Button Style="{StaticResource PrimaryButton}" Command="{Binding TestAllCommand}"
+                        IsEnabled="{Binding TunnelRunning}" ToolTip="{Binding Hint}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEC4A;" FontFamily="{StaticResource IconFont}" FontSize="12"
+                                   Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding TestAllLabel}" Foreground="White" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Фильтры -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="340" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Grid>
-                <TextBox x:Name="FilterBox" Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}"
-                         Padding="34,8,28,8" AutomationProperties.Name="Поиск сервера" />
-                <TextBlock Text="&#xE721;" Style="{StaticResource IconText}" FontSize="13" Margin="12,0,0,0"
+                <TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" Padding="34,8,30,8"
+                         Tag="Поиск по стране или адресу"
+                         AutomationProperties.Name="Поиск сервера" />
+                <TextBlock Text="&#xE721;" Style="{StaticResource IconText}" FontSize="12" Margin="12,0,0,0"
                            IsHitTestVisible="False" />
-                <TextBlock Text="Поиск по стране, адресу или протоколу" Foreground="{StaticResource TextMutedBrush}"
-                           Margin="35,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
-                           Visibility="{Binding ElementName=FilterBox, Path=Text, Converter={StaticResource NullToVisibility}, ConverterParameter=empty}" />
                 <Button Command="{Binding ClearFilterCommand}" Style="{StaticResource GhostButton}"
                         Padding="0" Width="22" Height="22" HorizontalAlignment="Right" Margin="0,0,5,0"
                         ToolTip="Очистить поиск" AutomationProperties.Name="Очистить поиск"
                         Visibility="{Binding Filter, Converter={StaticResource NullToVisibility}}">
-                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="10"
+                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="9"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
             </Grid>
 
-            <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center">
+            <ComboBox Grid.Column="1" Width="138" Margin="10,0,0,0" ItemsSource="{Binding SortModes}"
+                      SelectedItem="{Binding SortMode, Mode=TwoWay}" ToolTip="Сортировка списка"
+                      AutomationProperties.Name="Сортировка серверов" />
+
+            <StackPanel Grid.Column="2" Margin="14,0" VerticalAlignment="Center">
                 <TextBlock Text="{Binding Hint}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
-                           TextWrapping="NoWrap" />
+                           TextWrapping="NoWrap" FontSize="11.5" />
                 <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
-                           TextWrapping="NoWrap" Foreground="{StaticResource TextBrush}"
+                           TextWrapping="NoWrap" Foreground="{StaticResource TextBrush}" FontSize="11.5"
                            Visibility="{Binding Status, Converter={StaticResource NullToVisibility}}" />
             </StackPanel>
+        </Grid>
 
-            <Button Grid.Column="2" Style="{StaticResource PrimaryButton}"
-                    Command="{Binding TestAllCommand}" IsEnabled="{Binding TunnelRunning}" ToolTip="{Binding Hint}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xEC4A;" FontFamily="{StaticResource IconFont}" FontSize="13"
-                               Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Text="Проверить все" Foreground="White" VerticalAlignment="Center" />
+        <!-- Список -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="6" Margin="0,0,0,16">
+            <Grid>
+                <ListBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource ServerRow}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         AutomationProperties.Name="Список серверов">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="30" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Style="{StaticResource CountryBadge}" Width="32" Height="32" CornerRadius="9">
+                                    <Grid>
+                                        <TextBlock Text="{Binding CountryCode}" FontSize="10.5" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                        <TextBlock Text="&#xE945;" FontFamily="{StaticResource IconFont}" FontSize="14"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource WarningBrush}"
+                                                   Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibility}}" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                    <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Endpoint}" Style="{StaticResource Caption}"
+                                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" FontSize="11" />
+                                </StackPanel>
+
+                                <Border Grid.Column="2" Style="{StaticResource Chip}" VerticalAlignment="Center"
+                                        Margin="10,0,0,0" Padding="7,2">
+                                    <TextBlock Text="{Binding TypeLabel}" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </Border>
+
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" Margin="10,0,0,0">
+                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,7,0"
+                                             Fill="{Binding Delay, Converter={StaticResource DelayToBrush}}"
+                                             Visibility="{Binding HasDelay, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock Text="{Binding DelayText}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{Binding Delay, Converter={StaticResource DelayToBrush}}" />
+                                </StackPanel>
+
+                                <Button Grid.Column="4" Style="{StaticResource IconButton}"
+                                        Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Проверить задержку"
+                                        AutomationProperties.Name="Проверить задержку"
+                                        Command="{Binding DataContext.TestOneCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xEC4A;" FontFamily="{StaticResource IconFont}" FontSize="12" />
+                                </Button>
+
+                                <Border Grid.Column="5" Width="22" Height="22" CornerRadius="11"
+                                        Background="{StaticResource AccentBrush}" VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Пустые состояния -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="&#xE774;" FontFamily="{StaticResource IconFont}" FontSize="28"
+                               Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Подписка ещё не загружена" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Margin="0,10,0,0" />
+                    <TextBlock Text="Укажите URL подписки в настройках и обновите её."
+                               Style="{StaticResource Caption}" HorizontalAlignment="Center" TextAlignment="Center"
+                               Margin="0,3,0,0" />
+                    <Button Content="Открыть настройки" Style="{StaticResource PrimaryButton}"
+                            HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding OpenSettingsCommand}" />
                 </StackPanel>
-            </Button>
-        </Grid>
 
-        <Grid Grid.Row="2">
-            <TextBlock Text="Подписка пуста. Укажите URL подписки в «Настройках» и обновите её."
-                       Style="{StaticResource Caption}" VerticalAlignment="Top" Margin="0,20,0,0"
-                       Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
-
-            <ListBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                     ItemContainerStyle="{StaticResource ServerRow}"
-                     Background="Transparent" BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     VirtualizingPanel.IsVirtualizing="True">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="38" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="86" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="28" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Text="{Binding Flag}" FontSize="20" VerticalAlignment="Center"
-                                       Visibility="{Binding HasFlag, Converter={StaticResource BoolToVisibility}}" />
-
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Name}" FontSize="14.5" FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Endpoint}" Style="{StaticResource Caption}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-
-                            <Border Grid.Column="2" Style="{StaticResource Chip}" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding TypeLabel}" FontSize="11.5"
-                                           Foreground="{StaticResource TextMutedBrush}" />
-                            </Border>
-
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right"
-                                        VerticalAlignment="Center">
-                                <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,7,0"
-                                         Fill="{Binding Delay, Converter={StaticResource DelayToBrush}}" />
-                                <TextBlock Text="{Binding DelayText}" FontWeight="SemiBold" FontSize="13"
-                                           Foreground="{Binding Delay, Converter={StaticResource DelayToBrush}}" />
-                            </StackPanel>
-
-                            <Button Grid.Column="4" Style="{StaticResource GhostButton}"
-                                    Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Проверить задержку"
-                                    AutomationProperties.Name="Проверить задержку"
-                                    Command="{Binding DataContext.TestOneCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}">
-                                <TextBlock Text="&#xEC4A;" FontFamily="{StaticResource IconFont}" FontSize="13" />
-                            </Button>
-
-                            <TextBlock Grid.Column="5" Text="&#xE73E;" Style="{StaticResource IconText}"
-                                       FontSize="15" Foreground="{StaticResource SuccessBrush}"
-                                       HorizontalAlignment="Center"
-                                       Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Grid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                            Visibility="{Binding IsFilterEmpty, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" FontSize="26"
+                               Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Ничего не найдено" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Margin="0,10,0,0" />
+                    <TextBlock Text="Измените запрос или сбросьте фильтр."
+                               Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                    <Button Content="Сбросить фильтр" Style="{StaticResource SecondaryButton}"
+                            HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding ClearFilterCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

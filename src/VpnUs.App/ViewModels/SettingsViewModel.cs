@@ -55,13 +55,51 @@ public sealed partial class ResourceOption : ObservableObject
 
 public sealed partial class SettingsViewModel : ObservableObject
 {
+    private static readonly HashSet<string> EditableProperties =
+    [
+        nameof(SubscriptionUrl),
+        nameof(SubscriptionAutoUpdate),
+        nameof(SubscriptionUpdateHours),
+        nameof(BypassGames),
+        nameof(BlockAds),
+        nameof(DnsDirect),
+        nameof(DnsProxy),
+        nameof(DnsStrategy),
+        nameof(TunStackName),
+        nameof(TunInterface),
+        nameof(TunMtu),
+        nameof(ClashApiPort),
+        nameof(LocalProxyPort),
+        nameof(UrlTestUrl),
+        nameof(UrlTestInterval),
+        nameof(LogLevel),
+        nameof(AutoConnect),
+        nameof(LaunchAtLogin),
+        nameof(StartMinimized),
+    ];
+
     private readonly ServiceClient _client;
     private readonly MainViewModel _main;
+    private bool _loading;
+    private DateTimeOffset? _subscriptionUpdatedAt;
 
     public SettingsViewModel(ServiceClient client, MainViewModel main)
     {
         _client = client;
         _main = main;
+
+        PropertyChanged += (_, e) =>
+        {
+            if (!_loading && e.PropertyName is { } name && EditableProperties.Contains(name))
+            {
+                if (!IsDirty)
+                {
+                    Message = "";
+                }
+
+                IsDirty = true;
+            }
+        };
     }
 
     /// <summary>Для биндингов карточки «Обновления».</summary>
@@ -99,6 +137,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private int _subscriptionUpdateHours = 24;
+
+    [ObservableProperty]
+    private string _subscriptionUpdatedLabel = "Подписка ещё не обновлялась";
+
+    [ObservableProperty]
+    private string _nextUpdateLabel = "";
+
     [ObservableProperty]
     private bool _bypassGames = true;
 
@@ -151,6 +196,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string _serviceState = "неизвестно";
 
     [ObservableProperty]
+    private string _serviceStateKind = "unknown";
+
+    [ObservableProperty]
     private string _runningServicePath = "—";
 
     [ObservableProperty]
@@ -166,6 +214,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _isBusy;
 
     [ObservableProperty]
+    private bool _isDirty;
+
+    [ObservableProperty]
     private bool _serviceInstalled;
 
     [ObservableProperty]
@@ -175,8 +226,24 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public string ServiceExe => AdminLauncher.ServiceExePath;
 
-    public void Load(AppSettings settings, int nodeCount)
+    public string FooterHint => IsDirty
+        ? "Изменения ещё не применены"
+        : !string.IsNullOrWhiteSpace(Message)
+            ? Message
+            : "Все изменения сохранены";
+
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(FooterHint));
+
+    partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(FooterHint));
+
+    public void Load(AppSettings settings, int nodeCount, bool force = false)
     {
+        if (!force && IsDirty)
+        {
+            return;
+        }
+
+        _loading = true;
         try
         {
             SubscriptionUrl = settings.SubscriptionUrl;
@@ -199,15 +266,26 @@ public sealed partial class SettingsViewModel : ObservableObject
             StartMinimized = _main.UiPreferences.StartMinimized;
             LaunchAtLogin = AppAutoStart.IsEnabled();
             NodesInfo = $"Серверов в подписке: {nodeCount}";
+            ApplySubscriptionLabels(settings.SubscriptionUpdatedAt);
+            IsDirty = false;
             Message = "";
         }
         finally
         {
+            _loading = false;
         }
     }
 
     public void ApplyStatus(ServiceStatusDto status)
     {
+        ServiceStateKind = status.State switch
+        {
+            "running" => "running",
+            "starting" or "stopping" => "connecting",
+            "error" => "error",
+            _ => "stopped",
+        };
+
         ServiceState = status.State switch
         {
             "running" => "работает",
@@ -224,7 +302,27 @@ public sealed partial class SettingsViewModel : ObservableObject
         NodesInfo = $"Серверов в подписке: {status.NodeCount}";
         ServiceInstalled = true;
         RunningServicePath = string.IsNullOrWhiteSpace(status.ServicePath) ? "путь неизвестен" : status.ServicePath;
+        ApplySubscriptionLabels(status.SubscriptionUpdatedAt);
     }
+
+    private void ApplySubscriptionLabels(DateTimeOffset? updatedAt)
+    {
+        _subscriptionUpdatedAt = updatedAt;
+
+        SubscriptionUpdatedLabel = updatedAt is null
+            ? "Подписка ещё не обновлялась"
+            : $"Обновлена {updatedAt.Value.LocalDateTime:dd.MM.yyyy HH:mm}";
+
+        NextUpdateLabel = updatedAt is null
+            ? ""
+            : SubscriptionAutoUpdate && SubscriptionUpdateHours > 0
+                ? $"Следующая авто-проверка ~ {updatedAt.Value.LocalDateTime.AddHours(SubscriptionUpdateHours):dd.MM HH:mm}"
+                : "Автообновление выключено";
+    }
+
+    partial void OnSubscriptionUpdateHoursChanged(int value) => ApplySubscriptionLabels(_subscriptionUpdatedAt);
+
+    partial void OnSubscriptionAutoUpdateChanged(bool value) => ApplySubscriptionLabels(_subscriptionUpdatedAt);
 
     public Task EnsureLoadedAsync()
     {
@@ -239,7 +337,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         return Task.CompletedTask;
     }
 
-    private async Task RefreshAsync()
+    private async Task RefreshAsync(bool force = false)
     {
         var state = await _client.GetAsync<ClientStateDto>(IpcCommands.GetSettings);
         if (state is null)
@@ -248,12 +346,19 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Load(state.Settings, state.Nodes.Count);
+        Load(state.Settings, state.Nodes.Count, force);
     }
 
     [RelayCommand]
     private async Task SaveAsync()
     {
+        var validationError = Validate();
+        if (validationError is not null)
+        {
+            Message = validationError;
+            return;
+        }
+
         var state = await _client.GetAsync<ClientStateDto>(IpcCommands.GetSettings);
         if (state is null)
         {
@@ -294,9 +399,44 @@ public sealed partial class SettingsViewModel : ObservableObject
         _main.SaveUiPreferences();
         AppAutoStart.Set(LaunchAtLogin);
 
-        Message = "Настройки сохранены";
+        IsDirty = false;
         UiLog.Write("info", "Настройки сохранены из UI");
         await _main.ReloadStateAsync();
+        Message = "Настройки сохранены";
+    }
+
+    private string? Validate()
+    {
+        if (ClashApiPort is < 1 or > 65535)
+        {
+            return "Порт Clash API должен быть от 1 до 65535";
+        }
+
+        if (LocalProxyPort is < 0 or > 65535)
+        {
+            return "Локальный прокси-порт должен быть от 0 до 65535";
+        }
+
+        if (TunMtu is < 576 or > 65535)
+        {
+            return "MTU должен быть от 576 до 65535";
+        }
+
+        if (SubscriptionUrl.Trim().Length > 0 &&
+            (!Uri.TryCreate(SubscriptionUrl.Trim(), UriKind.Absolute, out var uri) ||
+             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)))
+        {
+            return "URL подписки должен начинаться с http:// или https://";
+        }
+
+        return null;
+    }
+
+    [RelayCommand]
+    private async Task RevertAsync()
+    {
+        await RefreshAsync(force: true);
+        Message = "Изменения отменены";
     }
 
     [RelayCommand]
@@ -309,8 +449,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             var result = await _client.GetAsync<SubscriptionRefreshDto>(IpcCommands.RefreshSubscription);
             if (result is { Ok: true })
             {
+                await RefreshAsync(force: true);
                 Message = $"Подписка обновлена: {result.NodeCount} серверов (HTTP {result.StatusCode}, редиректов {result.Redirects})";
-                await RefreshAsync();
             }
             else
             {
@@ -394,12 +534,46 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void UninstallService()
     {
+        var confirm = MessageBox.Show(
+            App.Current.MainWindow,
+            "Удалить службу VpnUs? VPN перестанет работать, пока служба не будет установлена снова.",
+            "Удаление службы",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
         var (started, error) = AdminLauncher.RunServiceCommand("uninstall");
         Message = started ? "Запущено удаление службы (UAC)" : error ?? "Не удалось";
     }
 
     [RelayCommand]
+    private async Task RestartTunnelAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            var ok = await _client.ExecuteAsync(IpcCommands.RestartTunnel);
+            Message = ok ? "Туннель перезапущен" : _client.LastError ?? "Не удалось перезапустить туннель";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
     private void CheckService() => _ = RefreshAsync();
+
+    [RelayCommand]
+    private void OpenLogs() => _main.NavigateTo(_main.Logs);
+
+    [RelayCommand]
+    private void OpenApps() => _main.NavigateTo(_main.Apps);
 
     [RelayCommand]
     private void OpenDataFolder()

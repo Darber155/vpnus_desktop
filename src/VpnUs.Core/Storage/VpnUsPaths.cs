@@ -106,8 +106,12 @@ public static class VpnUsPaths
 public sealed class UiPreferences
 {
     public bool StartMinimized { get; set; } = true;
-    public double WindowWidth { get; set; } = 1100;
-    public double WindowHeight { get; set; } = 720;
+    public double WindowWidth { get; set; } = 1180;
+    public double WindowHeight { get; set; } = 840;
+    public double? WindowLeft { get; set; }
+    public double? WindowTop { get; set; }
+    public bool WindowMaximized { get; set; }
+    public string LastPage { get; set; } = "home";
     public bool CheckUpdatesOnStart { get; set; } = true;
     public DateTimeOffset? LastUpdateCheck { get; set; }
 }
