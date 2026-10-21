@@ -12,6 +12,8 @@ namespace VpnUs.Service;
 /// </summary>
 public sealed class SingBoxSupervisor
 {
+    private const int MaxRestartAttempts = 6;
+
     private readonly RingLog _log;
     private readonly object _gate = new();
     private Process? _process;
@@ -58,7 +60,10 @@ public sealed class SingBoxSupervisor
     {
         lock (_gate)
         {
-            if (IsRunning || State == ServiceState.Starting)
+            // State == Starting — это и есть штатное состояние запуска (в том числе после
+            // автоперезапуска). Ориентируемся на живой процесс, иначе автоперезапуск
+            // навсегда застревал бы в Starting и не запускал sing-box заново.
+            if (_process is not null)
             {
                 return;
             }
@@ -70,6 +75,12 @@ public sealed class SingBoxSupervisor
             _log.Error(LastError);
             SetState(ServiceState.Error);
             return;
+        }
+
+        // Пользователь нажал «Подключить» после серии автоперезапусков — даём новый шанс.
+        if (State == ServiceState.Error)
+        {
+            _restartAttempts = 0;
         }
 
         if (!File.Exists(VpnUsPaths.WintunDll))
@@ -138,6 +149,15 @@ public sealed class SingBoxSupervisor
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_process, process))
+                {
+                    _process = null;
+                }
+            }
+
+            process.Dispose();
             LastError = "Запуск sing-box не удался: " + ex.Message;
             _log.Error(LastError);
             SetState(ServiceState.Error);
@@ -176,6 +196,10 @@ public sealed class SingBoxSupervisor
 
     public async Task StopAsync(CancellationToken ct = default)
     {
+        // Ставим флаг ДО чтения процесса: если sing-box успел умереть и OnProcessExited
+        // уже запустил отложенный автоперезапуск, StopAsync всё равно должен его отменить.
+        _stopRequested = true;
+
         Process? process;
         lock (_gate)
         {
@@ -188,7 +212,6 @@ public sealed class SingBoxSupervisor
             return;
         }
 
-        _stopRequested = true;
         SetState(ServiceState.Stopping);
 
         try
@@ -304,7 +327,7 @@ public sealed class SingBoxSupervisor
 
         _log.Warn($"sing-box неожиданно завершился (код {code}, uptime {uptime.TotalSeconds:0} с)");
 
-        if (_restartAttempts >= 3)
+        if (_restartAttempts >= MaxRestartAttempts)
         {
             LastError = $"sing-box падает повторно (код {code}). Автоперезапуск остановлен.";
             _log.Error(LastError);
@@ -313,7 +336,7 @@ public sealed class SingBoxSupervisor
         }
 
         _restartAttempts++;
-        var delay = TimeSpan.FromSeconds(3 * Math.Pow(2, _restartAttempts - 1));
+        var delay = TimeSpan.FromSeconds(Math.Min(60, 3 * Math.Pow(2, _restartAttempts - 1)));
         var configPath = _configPath;
         var port = _clashApiPort;
         var clashEnabled = _clashApiEnabled;
@@ -325,7 +348,7 @@ public sealed class SingBoxSupervisor
         }
 
         SetState(ServiceState.Starting);
-        _log.Warn($"Автоперезапуск ядра через {delay.TotalSeconds:0} с (попытка {_restartAttempts}/3)");
+        _log.Warn($"Автоперезапуск ядра через {delay.TotalSeconds:0} с (попытка {_restartAttempts}/{MaxRestartAttempts})");
 
         _ = Task.Run(async () =>
         {

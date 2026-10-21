@@ -159,6 +159,9 @@ public sealed partial class HomeViewModel : ObservableObject
 
     public string WindowTitle => IsConnected ? "VpnUs — подключено" : "VpnUs";
 
+    private static bool IsBootGracePeriod =>
+        Environment.TickCount64 < (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
+
     partial void OnStateKindChanged(string value)
     {
         OnPropertyChanged(nameof(ConnectButtonText));
@@ -188,13 +191,19 @@ public sealed partial class HomeViewModel : ObservableObject
             IsConnected = false;
             StateKind = "disconnected";
             StatusLabel = "Отключено";
-            StatusHint = _client.IsServiceInstalled ? "Служба не отвечает" : "Служба не установлена";
+
+            var waitingForBoot = _client.IsServiceInstalled && IsBootGracePeriod;
+            StatusHint = waitingForBoot
+                ? "Служба запускается после загрузки Windows…"
+                : _client.IsServiceInstalled ? "Служба не отвечает" : "Служба не установлена";
             CoreLabel = "Ядро не найдено";
             ServiceIssue = true;
-            ServiceIssueText = _client.IsServiceInstalled
-                ? "Служба VpnUs установлена, но не отвечает. Проверьте её состояние в «Настройках»."
-                : "Служба VpnUs не установлена — без неё TUN-режим недоступен. Установите её в «Настройках».";
-            Error = _client.IsServiceInstalled ? _client.LastError : null;
+            ServiceIssueText = waitingForBoot
+                ? "Windows только что загрузилась. Служба VpnUs стартует с задержкой, чтобы сеть и TUN-драйвер успели инициализироваться — это занимает до пары минут."
+                : _client.IsServiceInstalled
+                    ? "Служба VpnUs установлена, но не отвечает. Проверьте её состояние в «Настройках»."
+                    : "Служба VpnUs не установлена — без неё TUN-режим недоступен. Установите её в «Настройках».";
+            Error = _client.IsServiceInstalled && !waitingForBoot ? _client.LastError : null;
 
             foreach (var chip in QuickServers)
             {

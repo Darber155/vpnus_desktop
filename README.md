@@ -27,7 +27,9 @@
   системных/UWP-приложений (включается отдельно).
 - **Игры напрямую**: `geosite-category-games` + игровые порты (27000-27100, 34715 и т.д.).
 - **Служба Windows**: sing-box работает от `LocalSystem`, UI общается с ним через named pipe
-  с токеном и списком SID (`ipc.allow`). UI запускается без UAC.
+  с токеном и списком SID (`ipc.allow`). UI запускается без UAC. Служба ставится с отложенным
+  автозапуском (`delayed-auto`) и зависимостями `Tcpip/Nsi`: после загрузки Windows сеть и TUN-драйвер
+  успевают инициализироваться, а при сбое TUN ядро перезапускается автоматически (до 6 попыток).
 - **Обновления**: ядро sing-box + wintun — кнопкой; обновления приложения — проверка GitHub Releases
   и установка прямо из UI.
 - **Удобство**: трей с быстрыми действиями, тёмная тема, Mica, настройки по разделам с защитой
@@ -68,10 +70,10 @@ dotnet test  tests\VpnUs.Core.Tests\VpnUs.Core.Tests.csproj
 
 ```powershell
 # портативная версия + установщик для x64
-powershell -File build\build-packages.ps1 -Version 1.1.1 -Runtimes win-x64
+powershell -File build\build-packages.ps1 -Version 1.1.2 -Runtimes win-x64
 
 # обе архитектуры
-powershell -File build\build-packages.ps1 -Version 1.1.1 -Runtimes win-x64,win-arm64
+powershell -File build\build-packages.ps1 -Version 1.1.2 -Runtimes win-x64,win-arm64
 ```
 
 Результат в `dist\`:

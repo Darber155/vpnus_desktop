@@ -1,8 +1,8 @@
 ; VpnUs — установщик (Inno Setup 6.3+)
-; Сборка: build\build-packages.ps1 (или: iscc /DAppVersion=1.1.1 /DArch=x64 /DSourceDir=... installer\VpnUs.iss)
+; Сборка: build\build-packages.ps1 (или: iscc /DAppVersion=1.1.2 /DArch=x64 /DSourceDir=... installer\VpnUs.iss)
 
 #ifndef AppVersion
-  #define AppVersion "1.1.1"
+  #define AppVersion "1.1.2"
 #endif
 #ifndef Arch
   #define Arch "x64"

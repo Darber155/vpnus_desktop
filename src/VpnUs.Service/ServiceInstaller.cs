@@ -11,6 +11,11 @@ public static class ServiceInstaller
     public const string DisplayName = "VpnUs VPN (sing-box)";
     public const string Description = "VPN-клиент на ядре sing-box: TUN, per-app split tunneling, подписки Happ.";
 
+    // Служба должна стартовать после сети, а не вместе с загрузкой Windows: Wintun/TUN
+    // не всегда готов в первые секунды после входа в систему. delayed-auto + зависимости
+    // дают сети и NDIS-стеку время инициализироваться.
+    private const string ServiceDependencies = "Tcpip/Nsi";
+
     private static readonly System.Text.StringBuilder InstallLogText = new();
 
     private static void Log(string text)
@@ -71,14 +76,16 @@ public static class ServiceInstaller
         }
 
         var results = new List<(string Args, int Code, string Output)>();
-        var create = RunSc("create", ServiceName, "binPath=", $"\"{exe}\" run", "start=", "auto", "DisplayName=", DisplayName);
+        var create = RunSc("create", ServiceName, "binPath=", $"\"{exe}\" run", "start=", "delayed-auto",
+            "depend=", ServiceDependencies, "DisplayName=", DisplayName);
         results.Add(create);
 
         // 1073 = ERROR_SERVICE_EXISTS, 1072 = ERROR_SERVICE_MARKED_FOR_DELETE — это «починка» существующей службы.
         if (create.Code != 0 && create.Code is 1073 or 1072)
         {
             Log("Служба уже существует — обновляю путь к исполняемому файлу (sc config).");
-            results.Add(RunSc("config", ServiceName, "binPath=", $"\"{exe}\" run", "start=", "auto", "DisplayName=", DisplayName));
+            results.Add(RunSc("config", ServiceName, "binPath=", $"\"{exe}\" run", "start=", "delayed-auto",
+                "depend=", ServiceDependencies, "DisplayName=", DisplayName));
             results.Add(RunSc("stop", ServiceName));
             System.Threading.Thread.Sleep(1500);
         }

@@ -2,7 +2,7 @@
 #
 # Примеры:
 #   powershell -File build\build-packages.ps1
-#   powershell -File build\build-packages.ps1 -Version 1.1.1 -Runtimes win-x64,win-arm64
+#   powershell -File build\build-packages.ps1 -Version 1.1.2 -Runtimes win-x64,win-arm64
 #   powershell -File build\build-packages.ps1 -SkipInstaller      # только portable ZIP
 #
 # Результат: каталог dist\
@@ -11,7 +11,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Version = "1.1.1",
+    [string]$Version = "1.1.2",
     [string[]]$Runtimes = @("win-x64"),
     [switch]$SkipInstaller,
     [switch]$FrameworkDependent

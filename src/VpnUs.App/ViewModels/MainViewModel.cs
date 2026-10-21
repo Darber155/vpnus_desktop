@@ -407,7 +407,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (status is null)
             {
-                ServiceStatusText = _client.IsServiceInstalled ? "Служба не отвечает" : "Служба не установлена";
+                var waitingForBoot = _client.IsServiceInstalled &&
+                                     Environment.TickCount64 < (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
+                ServiceStatusText = waitingForBoot
+                    ? "Служба запускается после загрузки…"
+                    : _client.IsServiceInstalled ? "Служба не отвечает" : "Служба не установлена";
                 Home.ApplyStatus(null);
                 return;
             }

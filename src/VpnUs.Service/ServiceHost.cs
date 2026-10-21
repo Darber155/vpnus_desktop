@@ -93,6 +93,7 @@ public sealed class ServiceHost
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            await WaitForBootReadinessAsync(_cts.Token).ConfigureAwait(false);
 
             if (ShouldRefreshSubscription())
             {
@@ -125,6 +126,64 @@ public sealed class ServiceHost
         {
             _log.Error("Startup: " + ex);
         }
+    }
+
+    private async Task WaitForBootReadinessAsync(CancellationToken ct)
+    {
+        var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
+        var minimumUptime = TimeSpan.FromMinutes(2);
+
+        if (uptime < minimumUptime)
+        {
+            var wait = minimumUptime - uptime;
+            if (wait > TimeSpan.FromSeconds(2))
+            {
+                _log.Info($"Windows загружена {uptime.TotalSeconds:0} с назад — отложу автоподключение на {wait.TotalSeconds:0} с, чтобы сеть и TUN-драйвер успели инициализироваться");
+                await Task.Delay(wait, ct).ConfigureAwait(false);
+            }
+        }
+
+        var deadline = DateTimeOffset.Now.AddSeconds(30);
+        while (!ct.IsCancellationRequested && DateTimeOffset.Now < deadline)
+        {
+            if (HasUsableNetworkInterface())
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
+        }
+
+        _log.Warn("Сетевой интерфейс ещё не готов — пробую подключиться всё равно");
+    }
+
+    private static bool HasUsableNetworkInterface()
+    {
+        try
+        {
+            foreach (var networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up ||
+                    networkInterface.NetworkInterfaceType is System.Net.NetworkInformation.NetworkInterfaceType.Loopback
+                        or System.Net.NetworkInformation.NetworkInterfaceType.Tunnel)
+                {
+                    continue;
+                }
+
+                foreach (var address in networkInterface.GetIPProperties().UnicastAddresses)
+                {
+                    if (!System.Net.IPAddress.IsLoopback(address.Address))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is System.Net.NetworkInformation.NetworkInformationException or PlatformNotSupportedException)
+        {
+        }
+
+        return System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
     }
 
     private async Task SchedulerLoopAsync(CancellationToken ct)
