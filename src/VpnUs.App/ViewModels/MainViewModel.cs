@@ -41,6 +41,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ServiceClient _client;
     private readonly DispatcherTimer _pollTimer;
     private readonly DispatcherTimer _trafficTimer;
+    private readonly DispatcherTimer _pingTimer;
     private readonly VpnTrafficTracker _tracker = new();
     private ClashApiClient? _clash;
     private int _clashPort;
@@ -50,6 +51,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private ServiceStatusDto? _lastStatus;
     private bool _stateLoaded;
     private bool _polling;
+    private bool _pinging;
 
     public MainViewModel(ServiceClient client)
     {
@@ -92,6 +94,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _trafficTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _trafficTimer.Tick += async (_, _) => await PollTrafficAsync();
         _trafficTimer.Start();
+
+        _pingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _pingTimer.Tick += async (_, _) => await PollPingAsync();
+        _pingTimer.Start();
     }
 
     public HomeViewModel Home { get; }
@@ -499,6 +505,28 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _tracker.SystemDownload, _tracker.SystemUpload, connections.Count);
     }
 
+    private async Task PollPingAsync()
+    {
+        if (_pinging)
+        {
+            return;
+        }
+
+        _pinging = true;
+        try
+        {
+            await Home.PingTickAsync();
+        }
+        catch (Exception ex)
+        {
+            UiLog.Write("warn", "Пинг сервера: " + ex.Message);
+        }
+        finally
+        {
+            _pinging = false;
+        }
+    }
+
     public void SaveUiPreferences()
     {
         try
@@ -515,6 +543,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         _pollTimer.Stop();
         _trafficTimer.Stop();
+        _pingTimer.Stop();
         _clash?.Dispose();
     }
 }

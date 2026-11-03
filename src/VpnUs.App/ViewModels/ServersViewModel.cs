@@ -3,9 +3,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VpnUs.App.Services;
 using VpnUs.Core.Apps;
-using VpnUs.Core.Clash;
 using VpnUs.Core.Ipc;
 using VpnUs.Core.Models;
+using VpnUs.Core.Net;
 
 namespace VpnUs.App.ViewModels;
 
@@ -92,8 +92,6 @@ public sealed partial class ServersViewModel : ObservableObject
 
     public ObservableCollection<string> SortModes { get; } = ["По имени", "По задержке"];
 
-    public int ClashApiPort { get; private set; } = 9090;
-
     [ObservableProperty]
     private string _filter = "";
 
@@ -113,10 +111,7 @@ public sealed partial class ServersViewModel : ObservableObject
     private string _selectedEndpoint = "Автовыбор по задержке";
 
     [ObservableProperty]
-    private bool _tunnelRunning;
-
-    [ObservableProperty]
-    private string _hint = "Пинг измеряется через Clash API и доступен после подключения";
+    private string _hint = "TCP-пинг работает без подключения — проверяйте серверы до старта VPN";
 
     [ObservableProperty]
     private ServerItemViewModel? _selectedRow;
@@ -179,18 +174,10 @@ public sealed partial class ServersViewModel : ObservableObject
 
     public void ApplyStatus(ServiceStatusDto status)
     {
-        ClashApiPort = status.ClashApiPort;
         _selectedTag = status.SelectedNode;
         SelectedName = CleanName(status.SelectedNodeName);
         var selected = _all.FirstOrDefault(s => s.Tag == _selectedTag);
         SelectedEndpoint = selected?.Endpoint ?? "Автовыбор по задержке";
-
-        TunnelRunning = string.Equals(status.State, "running", StringComparison.OrdinalIgnoreCase);
-        Hint = TunnelRunning
-            ? $"Clash API: 127.0.0.1:{status.ClashApiPort}"
-            : status.State == "error"
-                ? "Туннель не поднялся — серверы не пингуются. Смотрите «Логи»."
-                : "Пинг измеряется через Clash API и доступен после подключения";
 
         foreach (var item in _all)
         {
@@ -303,34 +290,26 @@ public sealed partial class ServersViewModel : ObservableObject
             return;
         }
 
-        if (!TunnelRunning)
-        {
-            Status = "Сначала подключитесь: Clash API доступен только при активном туннеле";
-            return;
-        }
-
-        if (Servers.Count == 0)
+        var targets = _all.Where(s => !s.IsAuto && s.Node is not null).ToList();
+        if (targets.Count == 0)
         {
             Status = "Нет серверов для проверки";
             return;
         }
 
         IsTesting = true;
-        Status = "Тестирую задержки…";
+        Status = "Тестирую задержки по TCP…";
 
         try
         {
-            using var clash = new ClashApiClient(ClashApiPort);
-            using var semaphore = new SemaphoreSlim(6);
-            var targets = Servers.ToList();
-
+            using var semaphore = new SemaphoreSlim(8);
             var tasks = targets.Select(async item =>
             {
                 await semaphore.WaitAsync();
                 try
                 {
                     item.IsTesting = true;
-                    item.Delay = await clash.GetDelayAsync(item.Tag, "http://cp.cloudflare.com/generate_204", 5000);
+                    item.Delay = await ServerPingService.PingAsync(item.Node!);
                 }
                 finally
                 {
@@ -341,9 +320,10 @@ public sealed partial class ServersViewModel : ObservableObject
 
             await Task.WhenAll(tasks);
 
+            UpdateAutoDelay();
             var answered = targets.Count(t => t.Delay is > 0);
             Status = answered == 0
-                ? "Clash API не ответил — проверьте, что туннель поднят (Логи)"
+                ? "Серверы не ответили — проверьте интернет или адреса серверов"
                 : $"Готово: ответили {answered} из {targets.Count}";
 
             if (SortMode == "По задержке")
@@ -365,17 +345,17 @@ public sealed partial class ServersViewModel : ObservableObject
             return;
         }
 
-        if (!TunnelRunning)
+        if (item.IsAuto)
         {
-            Status = "Сначала подключитесь, чтобы измерить задержку";
+            await TestAllAsync();
             return;
         }
 
-        using var clash = new ClashApiClient(ClashApiPort);
         item.IsTesting = true;
         try
         {
-            item.Delay = await clash.GetDelayAsync(item.Tag, "http://cp.cloudflare.com/generate_204", 5000);
+            item.Delay = await ServerPingService.PingAsync(item.Node);
+            UpdateAutoDelay();
             Status = item.Delay is > 0 ? $"{item.Name}: {item.Delay} мс" : $"{item.Name}: нет ответа";
             if (SortMode == "По задержке")
             {
@@ -386,6 +366,22 @@ public sealed partial class ServersViewModel : ObservableObject
         {
             item.IsTesting = false;
         }
+    }
+
+    private void UpdateAutoDelay()
+    {
+        var auto = _all.FirstOrDefault(s => s.IsAuto);
+        if (auto is null)
+        {
+            return;
+        }
+
+        var delays = _all
+            .Where(s => !s.IsAuto && s.Delay is > 0)
+            .Select(s => s.Delay!.Value)
+            .ToList();
+
+        auto.Delay = delays.Count > 0 ? delays.Min() : null;
     }
 
     private static string CleanName(string? name)

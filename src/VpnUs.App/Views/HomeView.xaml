@@ -306,10 +306,10 @@
                 </Grid>
             </Border>
 
-            <!-- Трафик + сессия -->
+            <!-- Трафик + пинг + сессия -->
             <Grid Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.55*" />
+                    <ColumnDefinition Width="1.7*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
 
@@ -323,63 +323,138 @@
 
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="1*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="Трафик" Style="{StaticResource SectionTitle}" Margin="0,0,0,1" />
-                                <TextBlock Text="{Binding TrafficRangeLabel}" Style="{StaticResource Caption}" FontSize="11.5" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel Margin="0,0,14,0">
-                                    <TextBlock Text="↓" FontSize="11" Foreground="{StaticResource SuccessBrush}" />
-                                    <TextBlock Text="{Binding DownSpeed}" FontSize="12.5" FontWeight="SemiBold" />
-                                </StackPanel>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="↑" FontSize="11" Foreground="{StaticResource AccentBrush}" />
-                                    <TextBlock Text="{Binding UpSpeed}" FontSize="12.5" FontWeight="SemiBold" />
+                                    <TextBlock Text="Трафик" Style="{StaticResource SectionTitle}" Margin="0,0,0,1" />
+                                    <TextBlock Text="{Binding TrafficRangeLabel}" Style="{StaticResource Caption}" FontSize="11.5" />
                                 </StackPanel>
-                            </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel Margin="0,0,14,0">
+                                        <TextBlock Text="↓" FontSize="11" Foreground="{StaticResource SuccessBrush}" />
+                                        <TextBlock Text="{Binding DownSpeed}" FontSize="12.5" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="↑" FontSize="11" Foreground="{StaticResource AccentBrush}" />
+                                        <TextBlock Text="{Binding UpSpeed}" FontSize="12.5" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Пинг" Style="{StaticResource SectionTitle}" Margin="0,0,0,1" />
+                                    <TextBlock Text="{Binding PingTargetLabel}" Style="{StaticResource Caption}"
+                                               FontSize="11.5" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding PingValue}" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{Binding PingCurrent, Converter={StaticResource DelayToBrush}}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </Grid>
                         </Grid>
 
                         <Grid Grid.Row="1" Margin="0,8,0,4" MinHeight="148">
-                            <controls:TrafficChart DownValues="{Binding DownSamples}" UpValues="{Binding UpSamples}"
-                                                   DownBrush="{StaticResource SuccessBrush}"
-                                                   UpBrush="{StaticResource AccentBrush}"
-                                                   GridBrush="{StaticResource ChartGridBrush}"
-                                                   TextBrush="{StaticResource TextMutedBrush}"
-                                                   EmptyText="" Height="148" />
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                        Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
-                                <TextBlock Text="&#xE9D2;" FontFamily="{StaticResource IconFont}" FontSize="22"
-                                           Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Нет данных о трафике" FontWeight="SemiBold" FontSize="13"
-                                           HorizontalAlignment="Center" Margin="0,8,0,0" />
-                                <TextBlock Text="Подключитесь, чтобы видеть скорость" Style="{StaticResource Caption}"
-                                           FontSize="11.5" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid>
+                                <controls:TrafficChart DownValues="{Binding DownSamples}" UpValues="{Binding UpSamples}"
+                                                       DownBrush="{StaticResource SuccessBrush}"
+                                                       UpBrush="{StaticResource AccentBrush}"
+                                                       GridBrush="{StaticResource ChartGridBrush}"
+                                                       TextBrush="{StaticResource TextMutedBrush}"
+                                                       EmptyText="" Height="148" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                    <TextBlock Text="&#xE9D2;" FontFamily="{StaticResource IconFont}" FontSize="22"
+                                               Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Нет данных о трафике" FontWeight="SemiBold" FontSize="13"
+                                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                    <TextBlock Text="Подключитесь, чтобы видеть скорость" Style="{StaticResource Caption}"
+                                               FontSize="11.5" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Grid.Column="1" Width="1" Background="{StaticResource BorderBrush}"
+                                    Margin="0,4" HorizontalAlignment="Center" />
+
+                            <Grid Grid.Column="2">
+                                <controls:PingChart Values="{Binding PingSamples}"
+                                                    LineBrush="{StaticResource AccentBrush}"
+                                                    GridBrush="{StaticResource ChartGridBrush}"
+                                                    TextBrush="{StaticResource TextMutedBrush}"
+                                                    Capacity="45" EmptyText="" Height="148" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Visibility="{Binding HasPingTarget, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                    <TextBlock Text="&#xE9D2;" FontFamily="{StaticResource IconFont}" FontSize="22"
+                                               Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Пинг недоступен" FontWeight="SemiBold" FontSize="13"
+                                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                    <TextBlock Text="Выберите сервер или загрузите подписку" Style="{StaticResource Caption}"
+                                               FontSize="11.5" HorizontalAlignment="Center" Margin="0,2,0,0"
+                                               TextAlignment="Center" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
                         </Grid>
 
                         <Grid Grid.Row="2" Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="1*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="Пик ↓" Style="{StaticResource StatLabel}" FontSize="10.5" />
-                                <TextBlock Text="{Binding PeakDownLabel}" FontSize="12.5" FontWeight="SemiBold"
-                                           Foreground="{StaticResource SuccessBrush}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Пик ↑" Style="{StaticResource StatLabel}" FontSize="10.5" />
-                                <TextBlock Text="{Binding PeakUpLabel}" FontSize="12.5" FontWeight="SemiBold"
-                                           Foreground="{StaticResource AccentBrush}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Соединений" Style="{StaticResource StatLabel}" FontSize="10.5" />
-                                <TextBlock Text="{Binding ConnectionsValue}" FontSize="12.5" FontWeight="SemiBold" />
-                            </StackPanel>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Пик ↓" Style="{StaticResource StatLabel}" FontSize="10.5" />
+                                    <TextBlock Text="{Binding PeakDownLabel}" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Пик ↑" Style="{StaticResource StatLabel}" FontSize="10.5" />
+                                    <TextBlock Text="{Binding PeakUpLabel}" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AccentBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Соединений" Style="{StaticResource StatLabel}" FontSize="10.5" />
+                                    <TextBlock Text="{Binding ConnectionsValue}" FontSize="12.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Среднее" Style="{StaticResource StatLabel}" FontSize="10.5" />
+                                    <TextBlock Text="{Binding PingAverageLabel}" FontSize="12.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Потери" Style="{StaticResource StatLabel}" FontSize="10.5" />
+                                    <TextBlock Text="{Binding PingLossLabel}" FontSize="12.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Border>

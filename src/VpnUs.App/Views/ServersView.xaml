@@ -66,7 +66,7 @@
                     <TextBlock Text="{Binding CountLabel}" FontSize="11.5" FontWeight="SemiBold" />
                 </Border>
                 <Button Style="{StaticResource PrimaryButton}" Command="{Binding TestAllCommand}"
-                        IsEnabled="{Binding TunnelRunning}" ToolTip="{Binding Hint}">
+                        ToolTip="{Binding Hint}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xEC4A;" FontFamily="{StaticResource IconFont}" FontSize="12"
                                    Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />

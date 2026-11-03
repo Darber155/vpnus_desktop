@@ -4,6 +4,7 @@ using VpnUs.App.Services;
 using VpnUs.Core.Apps;
 using VpnUs.Core.Ipc;
 using VpnUs.Core.Models;
+using VpnUs.Core.Net;
 using VpnUs.Core.Text;
 
 namespace VpnUs.App.ViewModels;
@@ -35,12 +36,25 @@ public sealed partial class HomeServerChip : ObservableObject
 public sealed partial class HomeViewModel : ObservableObject
 {
     private const int TrafficWindow = 90;
+    private const int PingWindow = 45;
+    private const int PingTimeoutMs = 3000;
+    private const int AutoPingBatchSize = 3;
+
+    private static readonly TimeSpan AutoPingFreshness = TimeSpan.FromSeconds(45);
 
     private readonly ServiceClient _client;
     private readonly MainViewModel _main;
+    private readonly Dictionary<string, ServerNode> _nodeByTag = new(StringComparer.Ordinal);
+    private readonly List<ServerNode> _nodeList = [];
+    private readonly Dictionary<string, (int? Delay, DateTimeOffset At)> _autoPings = new(StringComparer.Ordinal);
+    private readonly Queue<int?> _pingHistory = new();
     private double _peakDown;
     private double _peakUp;
     private int _selectedAppsCount;
+    private string _selectedTag = "auto";
+    private int _autoPingCursor;
+    private bool _pinging;
+    private ServerNode? _pingTarget;
 
     public HomeViewModel(ServiceClient client, MainViewModel main)
     {
@@ -53,6 +67,8 @@ public sealed partial class HomeViewModel : ObservableObject
     public ObservableCollection<double> DownSamples { get; } = [];
 
     public ObservableCollection<double> UpSamples { get; } = [];
+
+    public ObservableCollection<double> PingSamples { get; } = [];
 
     public ObservableCollection<HomeServerChip> QuickServers { get; } = [];
 
@@ -103,6 +119,24 @@ public sealed partial class HomeViewModel : ObservableObject
 
     [ObservableProperty]
     private string _peakUpLabel = "—";
+
+    [ObservableProperty]
+    private string _pingValue = "—";
+
+    [ObservableProperty]
+    private string _pingTargetLabel = "Auto · ближайший";
+
+    [ObservableProperty]
+    private string _pingAverageLabel = "—";
+
+    [ObservableProperty]
+    private string _pingLossLabel = "—";
+
+    [ObservableProperty]
+    private int? _pingCurrent;
+
+    [ObservableProperty]
+    private bool _hasPingTarget;
 
     [ObservableProperty]
     private string _uptime = "—";
@@ -156,6 +190,8 @@ public sealed partial class HomeViewModel : ObservableObject
     public string ConnectionsValue => ConnectionCount > 0 ? ConnectionCount.ToString() : "—";
 
     public string TrafficRangeLabel => "последние 90 секунд";
+
+    public string PingRangeLabel => "последние 90 секунд";
 
     public string WindowTitle => IsConnected ? "VpnUs — подключено" : "VpnUs";
 
@@ -242,6 +278,7 @@ public sealed partial class HomeViewModel : ObservableObject
         var code = FlagHelper.CountryCode(status.SelectedNodeName);
         ServerCode = code.Length > 0 ? code : "•";
         ServerIsAuto = string.Equals(status.SelectedNode, "auto", StringComparison.OrdinalIgnoreCase);
+        UpdatePingTarget(status.SelectedNode);
         ModeLabel = ModeName(status.Mode);
         UpdateAppsLabel(status.Mode, status.AppSplit);
         CoreLabel = status.CorePresent
@@ -272,6 +309,19 @@ public sealed partial class HomeViewModel : ObservableObject
     {
         _selectedAppsCount = selectedAppsCount;
 
+        _nodeByTag.Clear();
+        _nodeList.Clear();
+        foreach (var node in nodes)
+        {
+            if (string.IsNullOrWhiteSpace(node.Tag))
+            {
+                continue;
+            }
+
+            _nodeByTag[node.Tag] = node;
+            _nodeList.Add(node);
+        }
+
         QuickServers.Clear();
         QuickServers.Add(new HomeServerChip("auto", "Auto", "", isAuto: true)
         {
@@ -299,6 +349,7 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         HasQuickServers = QuickServers.Count > 1;
+        UpdatePingTarget(selectedTag);
     }
 
     public void ApplyTraffic(
@@ -326,6 +377,143 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         AppendTraffic(downSpeed ?? 0, upSpeed ?? 0);
+    }
+
+    /// <summary>Один такт TCP-пинга выбранного сервера. Работает и без активного туннеля.</summary>
+    public async Task PingTickAsync()
+    {
+        if (_pinging || !HasPingTarget)
+        {
+            return;
+        }
+
+        _pinging = true;
+        try
+        {
+            var tag = _selectedTag;
+            var delay = tag == "auto"
+                ? await MeasureAutoDelayAsync()
+                : _pingTarget is not null
+                    ? await ServerPingService.PingAsync(_pingTarget, PingTimeoutMs)
+                    : null;
+
+            if (!string.Equals(tag, _selectedTag, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            AppendPing(delay);
+        }
+        finally
+        {
+            _pinging = false;
+        }
+    }
+
+    private async Task<int?> MeasureAutoDelayAsync()
+    {
+        if (_nodeList.Count == 0)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.Now;
+        var batchSize = Math.Min(AutoPingBatchSize, _nodeList.Count);
+        var batch = new ServerNode[batchSize];
+        for (var i = 0; i < batchSize; i++)
+        {
+            batch[i] = _nodeList[(_autoPingCursor + i) % _nodeList.Count];
+        }
+
+        _autoPingCursor = (_autoPingCursor + batchSize) % _nodeList.Count;
+
+        var delays = await Task.WhenAll(batch.Select(node => ServerPingService.PingAsync(node, PingTimeoutMs)));
+        for (var i = 0; i < batch.Length; i++)
+        {
+            _autoPings[batch[i].Tag] = (delays[i], now);
+        }
+
+        var cutoff = now - AutoPingFreshness;
+        foreach (var stale in _autoPings.Where(pair => pair.Value.At < cutoff).Select(pair => pair.Key).ToList())
+        {
+            _autoPings.Remove(stale);
+        }
+
+        var fresh = _autoPings.Values.Where(value => value.Delay is > 0).Select(value => value.Delay!.Value).ToList();
+        return fresh.Count > 0 ? fresh.Min() : null;
+    }
+
+    private void AppendPing(int? delay)
+    {
+        var answered = delay is > 0;
+        if (PingSamples.Count == 0)
+        {
+            var initial = answered ? delay!.Value : double.NaN;
+            for (var i = 0; i < PingWindow; i++)
+            {
+                PingSamples.Add(initial);
+            }
+        }
+
+        PingSamples.Add(answered ? delay!.Value : double.NaN);
+        while (PingSamples.Count > PingWindow)
+        {
+            PingSamples.RemoveAt(0);
+        }
+
+        _pingHistory.Enqueue(answered ? delay : null);
+        while (_pingHistory.Count > PingWindow)
+        {
+            _pingHistory.Dequeue();
+        }
+
+        PingCurrent = answered ? delay : null;
+        PingValue = answered ? $"{delay} мс" : "нет ответа";
+
+        var valid = _pingHistory.Where(value => value is > 0).Select(value => value!.Value).ToList();
+        PingAverageLabel = valid.Count > 0 ? $"{Math.Round(valid.Average()):0} мс" : "—";
+        var failed = _pingHistory.Count(value => value is null);
+        PingLossLabel = _pingHistory.Count == 0 ? "—" : $"{100.0 * failed / _pingHistory.Count:0}%";
+    }
+
+    private void ResetPing()
+    {
+        if (PingSamples.Count > 0)
+        {
+            PingSamples.Clear();
+        }
+
+        _pingHistory.Clear();
+        _autoPings.Clear();
+        _autoPingCursor = 0;
+        PingCurrent = null;
+        PingValue = "—";
+        PingAverageLabel = "—";
+        PingLossLabel = "—";
+    }
+
+    private void UpdatePingTarget(string? tag)
+    {
+        var nextTag = string.IsNullOrWhiteSpace(tag) ? "auto" : tag;
+        var previousTag = _selectedTag;
+        var previousEndpoint = _pingTarget?.Endpoint;
+
+        _selectedTag = nextTag;
+        _pingTarget = _nodeByTag.TryGetValue(nextTag, out var node) ? node : null;
+        HasPingTarget = nextTag == "auto" ? _nodeList.Count > 0 : _pingTarget is not null;
+
+        PingTargetLabel = nextTag == "auto"
+            ? "Auto · ближайший"
+            : _pingTarget is not null
+                ? $"{SanitizeNodeName(_pingTarget.Name)} · TCP"
+                : "Сервер не выбран";
+
+        var changed = !string.Equals(previousTag, nextTag, StringComparison.Ordinal) ||
+                      !string.Equals(previousEndpoint, _pingTarget?.Endpoint, StringComparison.Ordinal);
+        if (changed)
+        {
+            ResetPing();
+        }
     }
 
     private void AppendTraffic(double down, double up)
