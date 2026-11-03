@@ -14,17 +14,7 @@ public class ServerPingServiceTests
         var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-
-        var accept = Task.Run(async () =>
-        {
-            try
-            {
-                using var client = await listener.AcceptTcpClientAsync();
-            }
-            catch (Exception ex) when (ex is SocketException or ObjectDisposedException)
-            {
-            }
-        });
+        var accept = listener.AcceptTcpClientAsync();
 
         try
         {
@@ -32,11 +22,19 @@ public class ServerPingServiceTests
 
             Assert.NotNull(delay);
             Assert.InRange(delay.Value, 1, 2000);
+            using var client = await accept;
+            Assert.True(client.Connected);
         }
         finally
         {
             listener.Stop();
-            await accept;
+            try
+            {
+                await accept;
+            }
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
+            {
+            }
         }
     }
 
