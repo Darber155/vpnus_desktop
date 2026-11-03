@@ -405,7 +405,7 @@
                                                Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center" />
                                     <TextBlock Text="Пинг недоступен" FontWeight="SemiBold" FontSize="13"
                                                HorizontalAlignment="Center" Margin="0,8,0,0" />
-                                    <TextBlock Text="Выберите сервер или загрузите подписку" Style="{StaticResource Caption}"
+                                    <TextBlock Text="{Binding PingEmptyText}" Style="{StaticResource Caption}"
                                                FontSize="11.5" HorizontalAlignment="Center" Margin="0,2,0,0"
                                                TextAlignment="Center" TextWrapping="Wrap" />
                                 </StackPanel>

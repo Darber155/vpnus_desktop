@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VpnUs.App.Services;
 using VpnUs.Core.Apps;
+using VpnUs.Core.Clash;
 using VpnUs.Core.Ipc;
 using VpnUs.Core.Models;
 using VpnUs.Core.Net;
@@ -76,11 +77,15 @@ public sealed partial class ServerItemViewModel : ObservableObject
 
 public sealed partial class ServersViewModel : ObservableObject
 {
+    private const string DelayTestUrl = "http://cp.cloudflare.com/generate_204";
+
     private readonly ServiceClient _client;
     private readonly MainViewModel _main;
     private readonly List<ServerItemViewModel> _all = [];
     private string _selectedTag = "auto";
+    private int _clashPort;
     private bool _loaded;
+    private bool _tunnelRunning;
 
     public ServersViewModel(ServiceClient client, MainViewModel main)
     {
@@ -174,10 +179,25 @@ public sealed partial class ServersViewModel : ObservableObject
 
     public void ApplyStatus(ServiceStatusDto status)
     {
+        _clashPort = status.ClashApiPort;
+        _tunnelRunning = string.Equals(status.State, "running", StringComparison.OrdinalIgnoreCase);
+        Hint = _tunnelRunning
+            ? "Пинг через активный туннель (Clash API) — реальная задержка узла"
+            : "TCP-пинг без подключения — проверяйте серверы до старта VPN";
+
         _selectedTag = status.SelectedNode;
         SelectedName = CleanName(status.SelectedNodeName);
         var selected = _all.FirstOrDefault(s => s.Tag == _selectedTag);
         SelectedEndpoint = selected?.Endpoint ?? "Автовыбор по задержке";
+
+        if (!_tunnelRunning)
+        {
+            var auto = _all.FirstOrDefault(s => s.IsAuto);
+            if (auto is not null)
+            {
+                auto.Delay = null;
+            }
+        }
 
         foreach (var item in _all)
         {
@@ -298,10 +318,11 @@ public sealed partial class ServersViewModel : ObservableObject
         }
 
         IsTesting = true;
-        Status = "Тестирую задержки по TCP…";
+        Status = _tunnelRunning ? "Тестирую задержки через туннель…" : "Тестирую TCP-задержки…";
 
         try
         {
+            using var clash = _tunnelRunning ? new ClashApiClient(_clashPort) : null;
             using var semaphore = new SemaphoreSlim(8);
             var tasks = targets.Select(async item =>
             {
@@ -309,7 +330,9 @@ public sealed partial class ServersViewModel : ObservableObject
                 try
                 {
                     item.IsTesting = true;
-                    item.Delay = await ServerPingService.PingAsync(item.Node!);
+                    item.Delay = clash is not null
+                        ? await clash.GetDelayAsync(item.Tag, DelayTestUrl, 5000)
+                        : await ServerPingService.PingAsync(item.Node!);
                 }
                 finally
                 {
@@ -320,10 +343,19 @@ public sealed partial class ServersViewModel : ObservableObject
 
             await Task.WhenAll(tasks);
 
-            UpdateAutoDelay();
+            var auto = _all.FirstOrDefault(s => s.IsAuto);
+            if (auto is not null)
+            {
+                auto.Delay = clash is not null
+                    ? await clash.GetDelayAsync("auto", DelayTestUrl, 5000) ?? BestKnownDelay()
+                    : null;
+            }
+
             var answered = targets.Count(t => t.Delay is > 0);
             Status = answered == 0
-                ? "Серверы не ответили — проверьте интернет или адреса серверов"
+                ? _tunnelRunning
+                    ? "Clash API не ответил — проверьте, что туннель поднят (Логи)"
+                    : "Серверы не ответили — проверьте интернет или адреса серверов"
                 : $"Готово: ответили {answered} из {targets.Count}";
 
             if (SortMode == "По задержке")
@@ -340,13 +372,19 @@ public sealed partial class ServersViewModel : ObservableObject
     [RelayCommand]
     private async Task TestOneAsync(ServerItemViewModel? item)
     {
-        if (item is null)
+        if (item is null || IsTesting)
         {
             return;
         }
 
         if (item.IsAuto)
         {
+            if (!_tunnelRunning)
+            {
+                Status = "Пинг Auto появится после подключения";
+                return;
+            }
+
             await TestAllAsync();
             return;
         }
@@ -354,9 +392,19 @@ public sealed partial class ServersViewModel : ObservableObject
         item.IsTesting = true;
         try
         {
-            item.Delay = await ServerPingService.PingAsync(item.Node);
-            UpdateAutoDelay();
-            Status = item.Delay is > 0 ? $"{item.Name}: {item.Delay} мс" : $"{item.Name}: нет ответа";
+            if (_tunnelRunning)
+            {
+                using var clash = new ClashApiClient(_clashPort);
+                item.Delay = await clash.GetDelayAsync(item.Tag, DelayTestUrl, 5000);
+            }
+            else
+            {
+                item.Delay = await ServerPingService.PingAsync(item.Node);
+            }
+
+            Status = item.Delay is > 0
+                ? $"{item.Name}: {item.Delay} мс ({(_tunnelRunning ? "туннель" : "TCP")})"
+                : $"{item.Name}: нет ответа";
             if (SortMode == "По задержке")
             {
                 Rebuild();
@@ -368,20 +416,14 @@ public sealed partial class ServersViewModel : ObservableObject
         }
     }
 
-    private void UpdateAutoDelay()
+    private int? BestKnownDelay()
     {
-        var auto = _all.FirstOrDefault(s => s.IsAuto);
-        if (auto is null)
-        {
-            return;
-        }
-
         var delays = _all
             .Where(s => !s.IsAuto && s.Delay is > 0)
             .Select(s => s.Delay!.Value)
             .ToList();
 
-        auto.Delay = delays.Count > 0 ? delays.Min() : null;
+        return delays.Count > 0 ? delays.Min() : null;
     }
 
     private static string CleanName(string? name)

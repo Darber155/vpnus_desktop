@@ -9,9 +9,9 @@
 
 ## Возможности
 
-- **Главная**: живые графики скорости загрузки/отдачи и пинга выбранного сервера, пиковые значения,
-  средняя задержка и потери, время сессии и число соединений; быстрое переключение серверов
-  и обновление подписки без перехода на другие экраны.
+- **Главная**: живые графики скорости загрузки/отдачи и реального пинга текущего узла (Clash API
+  при подключении), пиковые значения, средняя задержка и потери, время сессии и число соединений;
+  быстрое переключение серверов и обновление подписки без перехода на другие экраны.
 - **Per-app split tunneling**: выбранные приложения идут через VPN, остальные — напрямую
   (sing-box `process_name` / `process_path` / `process_path_regex` + `route.find_process`).
   3 режима: *только выбранные*, *все приложения*, *все, кроме выбранных*.
@@ -22,7 +22,8 @@
   Схемы: `vless` (reality/utls/tcp+vision/ws/grpc/http/h2/quic/httpupgrade), `vmess`, `trojan`,
   `ss` (SIP002 и legacy), `hysteria2`/`hy2`, `tuic`, `anytls`. Неподдерживаемые транспорты пропускаются.
 - **Серверы**: список с кодами стран, типом/адресом, выбор, Auto (urltest), TCP-пинг без подключения
-  (для Hysteria2/TUIC — ICMP), «Test all», сортировка по имени или задержке.
+  (для Hysteria2/TUIC — ICMP), при активном туннеле — реальная задержка через Clash API,
+  «Test all», сортировка по имени или задержке.
 - **Приложения**: сканирование ярлыков «Пуск», Uninstall-реестра, пакетов Store и запущенных процессов,
   поиск/фильтры, «Добавить .exe», иконки, выбор кликом по строке, массовые операции и скрытие
   системных/UWP-приложений (включается отдельно).
@@ -71,10 +72,10 @@ dotnet test  tests\VpnUs.Core.Tests\VpnUs.Core.Tests.csproj
 
 ```powershell
 # портативная версия + установщик для x64
-powershell -File build\build-packages.ps1 -Version 1.1.3 -Runtimes win-x64
+powershell -File build\build-packages.ps1 -Version 1.1.4 -Runtimes win-x64
 
 # обе архитектуры
-powershell -File build\build-packages.ps1 -Version 1.1.3 -Runtimes win-x64,win-arm64
+powershell -File build\build-packages.ps1 -Version 1.1.4 -Runtimes win-x64,win-arm64
 ```
 
 Результат в `dist\`:

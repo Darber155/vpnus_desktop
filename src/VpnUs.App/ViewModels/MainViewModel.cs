@@ -48,6 +48,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private long _lastDownload;
     private long _lastUpload;
     private DateTimeOffset _lastTrafficAt = DateTimeOffset.Now;
+    private DateTimeOffset _lastClashProbeAt = DateTimeOffset.MinValue;
     private ServiceStatusDto? _lastStatus;
     private bool _stateLoaded;
     private bool _polling;
@@ -515,7 +516,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _pinging = true;
         try
         {
-            await Home.PingTickAsync();
+            var status = _lastStatus;
+            if (status is { State: "running" } && _clash is not null)
+            {
+                Home.ApplyTunnelPing(await GetTunnelDelayAsync(status));
+            }
+            else
+            {
+                await Home.PingTickAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -525,6 +534,37 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             _pinging = false;
         }
+    }
+
+    private async Task<int?> GetTunnelDelayAsync(ServiceStatusDto status)
+    {
+        var proxies = await _clash!.GetProxiesAsync();
+
+        int? delay = null;
+        if (status.SelectedNode == "auto")
+        {
+            if (proxies.TryGetValue("auto", out var auto))
+            {
+                delay = auto.Delay;
+                if (delay is null && auto.Now.Length > 0 && proxies.TryGetValue(auto.Now, out var chosen))
+                {
+                    delay = chosen.Delay;
+                }
+            }
+        }
+        else if (proxies.TryGetValue(status.SelectedNode, out var selected))
+        {
+            delay = selected.Delay;
+        }
+
+        if (delay is null && DateTimeOffset.Now - _lastClashProbeAt >= TimeSpan.FromSeconds(15))
+        {
+            _lastClashProbeAt = DateTimeOffset.Now;
+            var tag = status.SelectedNode == "auto" ? "auto" : status.SelectedNode;
+            delay = await _clash.GetDelayAsync(tag, "http://cp.cloudflare.com/generate_204", 5000);
+        }
+
+        return delay;
     }
 
     public void SaveUiPreferences()

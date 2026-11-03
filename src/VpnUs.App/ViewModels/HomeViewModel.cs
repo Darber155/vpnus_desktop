@@ -38,22 +38,17 @@ public sealed partial class HomeViewModel : ObservableObject
     private const int TrafficWindow = 90;
     private const int PingWindow = 45;
     private const int PingTimeoutMs = 3000;
-    private const int AutoPingBatchSize = 3;
-
-    private static readonly TimeSpan AutoPingFreshness = TimeSpan.FromSeconds(45);
 
     private readonly ServiceClient _client;
     private readonly MainViewModel _main;
     private readonly Dictionary<string, ServerNode> _nodeByTag = new(StringComparer.Ordinal);
-    private readonly List<ServerNode> _nodeList = [];
-    private readonly Dictionary<string, (int? Delay, DateTimeOffset At)> _autoPings = new(StringComparer.Ordinal);
     private readonly Queue<int?> _pingHistory = new();
     private double _peakDown;
     private double _peakUp;
     private int _selectedAppsCount;
     private string _selectedTag = "auto";
-    private int _autoPingCursor;
     private bool _pinging;
+    private bool _tunnelRunning;
     private ServerNode? _pingTarget;
 
     public HomeViewModel(ServiceClient client, MainViewModel main)
@@ -124,7 +119,10 @@ public sealed partial class HomeViewModel : ObservableObject
     private string _pingValue = "—";
 
     [ObservableProperty]
-    private string _pingTargetLabel = "Auto · ближайший";
+    private string _pingTargetLabel = "Auto · нет данных";
+
+    [ObservableProperty]
+    private string _pingEmptyText = "Подключитесь, чтобы видеть реальный пинг Auto";
 
     [ObservableProperty]
     private string _pingAverageLabel = "—";
@@ -225,6 +223,8 @@ public sealed partial class HomeViewModel : ObservableObject
         if (status is null)
         {
             IsConnected = false;
+            UpdateTunnelState(false);
+            UpdatePingTarget(_selectedTag);
             StateKind = "disconnected";
             StatusLabel = "Отключено";
 
@@ -253,6 +253,7 @@ public sealed partial class HomeViewModel : ObservableObject
         ServiceIssue = false;
         ServiceIssueText = "";
         IsConnected = string.Equals(status.State, "running", StringComparison.OrdinalIgnoreCase);
+        UpdateTunnelState(IsConnected);
         if (!IsBusy)
         {
             StateKind = KindOf(status.State);
@@ -310,7 +311,6 @@ public sealed partial class HomeViewModel : ObservableObject
         _selectedAppsCount = selectedAppsCount;
 
         _nodeByTag.Clear();
-        _nodeList.Clear();
         foreach (var node in nodes)
         {
             if (string.IsNullOrWhiteSpace(node.Tag))
@@ -319,7 +319,6 @@ public sealed partial class HomeViewModel : ObservableObject
             }
 
             _nodeByTag[node.Tag] = node;
-            _nodeList.Add(node);
         }
 
         QuickServers.Clear();
@@ -379,10 +378,10 @@ public sealed partial class HomeViewModel : ObservableObject
         AppendTraffic(downSpeed ?? 0, upSpeed ?? 0);
     }
 
-    /// <summary>Один такт TCP-пинга выбранного сервера. Работает и без активного туннеля.</summary>
+    /// <summary>Один такт TCP-пинга выбранного сервера. Используется только без активного туннеля.</summary>
     public async Task PingTickAsync()
     {
-        if (_pinging || !HasPingTarget)
+        if (_pinging || _tunnelRunning || !HasPingTarget || _pingTarget is null)
         {
             return;
         }
@@ -391,13 +390,9 @@ public sealed partial class HomeViewModel : ObservableObject
         try
         {
             var tag = _selectedTag;
-            var delay = tag == "auto"
-                ? await MeasureAutoDelayAsync()
-                : _pingTarget is not null
-                    ? await ServerPingService.PingAsync(_pingTarget, PingTimeoutMs)
-                    : null;
+            var delay = await ServerPingService.PingAsync(_pingTarget, PingTimeoutMs);
 
-            if (!string.Equals(tag, _selectedTag, StringComparison.Ordinal))
+            if (!string.Equals(tag, _selectedTag, StringComparison.Ordinal) || _tunnelRunning)
             {
                 return;
             }
@@ -410,37 +405,15 @@ public sealed partial class HomeViewModel : ObservableObject
         }
     }
 
-    private async Task<int?> MeasureAutoDelayAsync()
+    /// <summary>Пинг через туннель: значение приходит из Clash API для фактического узла.</summary>
+    public void ApplyTunnelPing(int? delay)
     {
-        if (_nodeList.Count == 0)
+        if (!_tunnelRunning || !HasPingTarget)
         {
-            return null;
+            return;
         }
 
-        var now = DateTimeOffset.Now;
-        var batchSize = Math.Min(AutoPingBatchSize, _nodeList.Count);
-        var batch = new ServerNode[batchSize];
-        for (var i = 0; i < batchSize; i++)
-        {
-            batch[i] = _nodeList[(_autoPingCursor + i) % _nodeList.Count];
-        }
-
-        _autoPingCursor = (_autoPingCursor + batchSize) % _nodeList.Count;
-
-        var delays = await Task.WhenAll(batch.Select(node => ServerPingService.PingAsync(node, PingTimeoutMs)));
-        for (var i = 0; i < batch.Length; i++)
-        {
-            _autoPings[batch[i].Tag] = (delays[i], now);
-        }
-
-        var cutoff = now - AutoPingFreshness;
-        foreach (var stale in _autoPings.Where(pair => pair.Value.At < cutoff).Select(pair => pair.Key).ToList())
-        {
-            _autoPings.Remove(stale);
-        }
-
-        var fresh = _autoPings.Values.Where(value => value.Delay is > 0).Select(value => value.Delay!.Value).ToList();
-        return fresh.Count > 0 ? fresh.Min() : null;
+        AppendPing(delay);
     }
 
     private void AppendPing(int? delay)
@@ -484,8 +457,6 @@ public sealed partial class HomeViewModel : ObservableObject
         }
 
         _pingHistory.Clear();
-        _autoPings.Clear();
-        _autoPingCursor = 0;
         PingCurrent = null;
         PingValue = "—";
         PingAverageLabel = "—";
@@ -500,13 +471,21 @@ public sealed partial class HomeViewModel : ObservableObject
 
         _selectedTag = nextTag;
         _pingTarget = _nodeByTag.TryGetValue(nextTag, out var node) ? node : null;
-        HasPingTarget = nextTag == "auto" ? _nodeList.Count > 0 : _pingTarget is not null;
+        var hasNodes = _nodeByTag.Count > 0;
+
+        HasPingTarget = nextTag == "auto"
+            ? hasNodes && _tunnelRunning
+            : _pingTarget is not null;
 
         PingTargetLabel = nextTag == "auto"
-            ? "Auto · ближайший"
+            ? _tunnelRunning ? "Auto · туннель" : "Auto · нет данных"
             : _pingTarget is not null
-                ? $"{SanitizeNodeName(_pingTarget.Name)} · TCP"
+                ? $"{SanitizeNodeName(_pingTarget.Name)} · {(_tunnelRunning ? "туннель" : "TCP")}"
                 : "Сервер не выбран";
+
+        PingEmptyText = nextTag == "auto" && !_tunnelRunning
+            ? "Подключитесь, чтобы видеть реальный пинг Auto"
+            : hasNodes ? "Выберите сервер" : "Загрузите подписку, чтобы видеть пинг";
 
         var changed = !string.Equals(previousTag, nextTag, StringComparison.Ordinal) ||
                       !string.Equals(previousEndpoint, _pingTarget?.Endpoint, StringComparison.Ordinal);
@@ -514,6 +493,18 @@ public sealed partial class HomeViewModel : ObservableObject
         {
             ResetPing();
         }
+    }
+
+    private void UpdateTunnelState(bool running)
+    {
+        if (_tunnelRunning == running)
+        {
+            return;
+        }
+
+        _tunnelRunning = running;
+        ResetPing();
+        UpdatePingTarget(_selectedTag);
     }
 
     private void AppendTraffic(double down, double up)
